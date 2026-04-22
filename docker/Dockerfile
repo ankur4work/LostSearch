@@ -4,15 +4,20 @@
 # different start commands.
 
 FROM node:20-alpine AS base
+# OpenSSL: required at runtime by Prisma's query engine on Alpine.
+# libc6-compat: required by some native modules (sharp, msgpackr-extract).
+RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
 # ---- deps ----
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* ./
-# `|| pnpm install` handles the case where the committed lockfile drifted
-# from package.json during rapid dev. On stable releases we want frozen.
-RUN pnpm install --frozen-lockfile || pnpm install
+# `--prod=false` forces pnpm to install devDependencies even when Coolify
+# injects NODE_ENV=production via build ARGs. We need prisma + typescript +
+# next CLI at build time — they live in devDependencies.
+# `|| pnpm install` handles the missing-lockfile case for first deploys.
+RUN pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
 
 # ---- build ----
 FROM base AS builder
