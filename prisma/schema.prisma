@@ -1,0 +1,249 @@
+// Search Failure Miner — data model
+// 30-day retention enforced by application logic; uninstall sets uninstalledAt.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum Plan {
+  FREE
+  GROWTH
+  PRO
+}
+
+enum ClassificationType {
+  TYPE_1
+  TYPE_2
+  TYPE_3
+  TYPE_4
+  UNCAT
+}
+
+enum IngestionStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum IngestionJobType {
+  INGEST_SEARCH
+  INGEST_ORDERS
+  INGEST_PRODUCTS
+}
+
+model Store {
+  id               String    @id @default(cuid())
+  shopDomain       String    @unique @map("shop_domain")
+  accessToken      String    @map("access_token")
+  scope            String
+  plan             Plan      @default(FREE)
+  aovCents         Int?      @map("aov_cents")
+  currency         String?
+  timezone         String?
+  merchantEmail    String?   @map("merchant_email")
+  orderSampleSize  Int?      @map("order_sample_size")
+  insufficientAov  Boolean   @default(false) @map("insufficient_aov")
+  industry         String?
+  category         String?   // resolved engine category: FASHION|BEAUTY|ELECTRONICS|HOME|FOOD|DEFAULT
+  firstDashboardViewAt DateTime? @map("first_dashboard_view_at")
+  digestOptedOutAt DateTime? @map("digest_opted_out_at")
+  digestLastSentAt DateTime? @map("digest_last_sent_at")
+  graceEndsAt      DateTime? @map("grace_ends_at")
+  shopifyChargeId  String?   @map("shopify_charge_id")
+  installedAt      DateTime  @default(now()) @map("installed_at")
+  uninstalledAt    DateTime? @map("uninstalled_at")
+  lastSyncAt       DateTime? @map("last_sync_at")
+  lastProductSync  DateTime? @map("last_product_sync")
+  lastOrderSync    DateTime? @map("last_order_sync")
+  lastSearchSync   DateTime? @map("last_search_sync")
+  scheduledRedactAt DateTime? @map("scheduled_redact_at")
+
+  searchQueries      SearchQuery[]
+  catalogProducts    CatalogProduct[]
+  classifications    Classification[]
+  synonymsApplied    SynonymApplied[]
+  digestLogs         DigestLog[]
+  billingEvents      BillingEvent[]
+  ingestionRuns      IngestionRun[]
+
+  @@map("stores")
+}
+
+model IngestionRun {
+  id            String           @id @default(cuid())
+  storeId       String           @map("store_id")
+  jobType       IngestionJobType @map("job_type")
+  status        IngestionStatus  @default(PENDING)
+  progressPct   Int              @default(0) @map("progress_pct")
+  startedAt     DateTime?        @map("started_at")
+  finishedAt    DateTime?        @map("finished_at")
+  errorMessage  String?          @map("error_message") @db.Text
+  bullJobId     String?          @map("bull_job_id")
+  attempt       Int              @default(0)
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, jobType, createdAt])
+  @@index([status])
+  @@map("ingestion_runs")
+}
+
+model SearchQuery {
+  id              String   @id @default(cuid())
+  storeId         String   @map("store_id")
+  query           String
+  queryNormalized String   @map("query_normalized")
+  occurredAt      DateTime @map("occurred_at")
+  dateBucket      DateTime @map("date_bucket") @db.Date
+  resultCount     Int      @map("result_count")
+  clickCount      Int      @default(0) @map("click_count")
+  occurrenceCount Int      @default(1) @map("occurrence_count")
+  filtersJson     Json?    @map("filters_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, queryNormalized, dateBucket], name: "uniq_store_query_bucket")
+  @@index([storeId, occurredAt])
+  @@index([storeId, queryNormalized])
+  @@map("search_queries")
+}
+
+model CatalogProduct {
+  id               String   @id @default(cuid())
+  storeId          String   @map("store_id")
+  shopifyProductId String   @map("shopify_product_id")
+  title            String
+  handle           String?
+  productType      String?  @map("product_type")
+  vendor           String?
+  tags             String[]
+  description      String?  @db.Text
+  descriptionText  String?  @map("description_text") @db.Text
+  variantsJson     Json?    @map("variants_json")
+  optionsJson      Json?    @map("options_json")
+  status           String?
+  embeddingText    String?  @map("embedding_text") @db.Text
+  // 384-dim vector produced by Xenova/all-MiniLM-L6-v2.
+  // Prisma has no first-class pgvector support yet; written/read via $queryRaw.
+  embedding        Unsupported("vector(384)")?
+  shopifyUpdatedAt DateTime? @map("shopify_updated_at")
+  syncedAt         DateTime @default(now()) @map("synced_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shopifyProductId])
+  @@index([storeId, syncedAt])
+  @@map("catalog_products")
+}
+
+model Classification {
+  id                 String             @id @default(cuid())
+  storeId            String             @map("store_id")
+  queryNorm          String             @map("query_norm")
+  type               ClassificationType
+  confidence         Float
+  matchedProductIds  String[]           @map("matched_product_ids")
+  occurrenceCount    Int                @default(0) @map("occurrence_count")
+  lowVolume          Boolean            @default(false) @map("low_volume")
+  reasoning          Json?
+  createdAt          DateTime           @default(now()) @map("created_at")
+
+  store             Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  revenueEstimates  RevenueEstimate[]
+
+  @@unique([storeId, queryNorm], name: "uniq_store_query_norm")
+  @@index([storeId, type])
+  @@map("classifications")
+}
+
+model RevenueEstimate {
+  id               String @id @default(cuid())
+  classificationId String @map("classification_id")
+  monthlyVolume    Int    @map("monthly_volume")
+  aovCents         Int    @map("aov_cents")
+  benchmarkPct     Float  @map("benchmark_pct")
+  estimateCents    Int    @map("estimate_cents")
+  bandLowCents     Int    @map("band_low_cents")
+  bandHighCents    Int    @map("band_high_cents")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  classification Classification @relation(fields: [classificationId], references: [id], onDelete: Cascade)
+
+  @@index([classificationId])
+  @@map("revenue_estimates")
+}
+
+model SynonymApplied {
+  id                String   @id @default(cuid())
+  storeId           String   @map("store_id")
+  query             String
+  productId         String   @map("product_id")
+  productTitle      String?  @map("product_title")
+  similarity        Float?
+  appliedAt         DateTime @default(now()) @map("applied_at")
+  shopifySynonymId  String?  @map("shopify_synonym_id")
+  /** 'merchant' | 'auto' | 'remove' — remove rows are the undo audit trail. */
+  source            String
+  /** Pointer to the original apply row that this row undoes (when source='remove'). */
+  undoesId          String?  @map("undoes_id")
+  estimatedImpactCents Int?  @map("estimated_impact_cents")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, appliedAt])
+  @@map("synonyms_applied")
+}
+
+model DigestLog {
+  id                   String    @id @default(cuid())
+  storeId              String    @map("store_id")
+  sentAt               DateTime  @default(now()) @map("sent_at")
+  gapCount             Int       @map("gap_count")
+  estimatedValueCents  Int       @map("estimated_value_cents")
+  openedAt             DateTime? @map("opened_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, sentAt])
+  @@map("digest_log")
+}
+
+model BillingEvent {
+  id                String   @id @default(cuid())
+  storeId           String   @map("store_id")
+  eventType         String   @map("event_type")
+  amountCents       Int      @map("amount_cents")
+  shopifyChargeId   String?  @map("shopify_charge_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+  @@map("billing_events")
+}
+
+model FeatureFlag {
+  id         String   @id @default(cuid())
+  /** NULL = global default; otherwise scoped to one store. */
+  storeId    String?  @map("store_id")
+  key        String
+  enabled    Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, key])
+  @@index([key])
+  @@map("feature_flags")
+}

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-22",
+  "source": "PRD §10.3 + industry reports",
+  "default": 0.08,
+  "categories": {
+    "FASHION": 0.10,
+    "BEAUTY": 0.12,
+    "ELECTRONICS": 0.075,
+    "HOME": 0.09,
+    "FOOD": 0.14
+  },
+  "aliases": {
+    "APPAREL": "FASHION",
+    "CLOTHING": "FASHION",
+    "JEWELRY": "FASHION",
+    "ACCESSORIES": "FASHION",
+    "COSMETICS": "BEAUTY",
+    "SKINCARE": "BEAUTY",
+    "HAIRCARE": "BEAUTY",
+    "TECH": "ELECTRONICS",
+    "GADGETS": "ELECTRONICS",
+    "FURNITURE": "HOME",
+    "DECOR": "HOME",
+    "KITCHEN": "HOME",
+    "GROCERY": "FOOD",
+    "SNACKS": "FOOD",
+    "BEVERAGES": "FOOD"
+  }
+}

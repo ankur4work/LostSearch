@@ -1,0 +1,96 @@
+# Production compose file for Coolify (and any other Docker host).
+# Differences from the dev compose:
+#   * Postgres + Redis NOT exposed to the host (only on the internal network).
+#   * Healthchecks are tightened.
+#   * Worker runs as a separate service so you can scale it independently.
+#   * Backup sidecar runs nightly pg_dump to S3 (Backblaze B2 has a free tier).
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in coolify}
+      POSTGRES_DB: search_failure_miner
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d search_failure_miner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file: [../.env.production]
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@postgres:5432/search_failure_miner?schema=public&connection_limit=15&pool_timeout=10
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health?strict=1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks: [internal, web]
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    command: ["node", "node_modules/.bin/tsx", "jobs/worker.ts"]
+    env_file: [../.env.production]
+    environment:
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD}@postgres:5432/search_failure_miner?schema=public&connection_limit=10
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [internal]
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      S3_BUCKET: ${BACKUP_S3_BUCKET:?}
+      S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:?}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_KEY_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET:?}
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    volumes:
+      - ../scripts:/scripts:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  internal:
+  web:
+    external: true  # provided by Coolify's reverse proxy

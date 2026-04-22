@@ -1,0 +1,12 @@
+[
+  { "id": "p01", "shopifyProductId": "gid://Product/01", "title": "Organic Cotton T-Shirt", "tags": ["cotton", "organic", "mens"] },
+  { "id": "p02", "shopifyProductId": "gid://Product/02", "title": "Indigo Denim Joggers", "tags": ["denim", "indigo", "unisex"] },
+  { "id": "p03", "shopifyProductId": "gid://Product/03", "title": "Ethnic Nehru Jacket", "tags": ["ethnic", "jacket", "mens"] },
+  { "id": "p04", "shopifyProductId": "gid://Product/04", "title": "Leather Biker Wallet", "tags": ["leather", "wallet", "mens"] },
+  { "id": "p05", "shopifyProductId": "gid://Product/05", "title": "Waterproof Hiking Boots", "tags": ["boots", "hiking", "outdoor"] },
+  { "id": "p06", "shopifyProductId": "gid://Product/06", "title": "Handwoven Silk Saree", "tags": ["saree", "silk", "womens"] },
+  { "id": "p07", "shopifyProductId": "gid://Product/07", "title": "Yoga Leggings", "tags": ["yoga", "athleisure", "womens"] },
+  { "id": "p08", "shopifyProductId": "gid://Product/08", "title": "Smartphone Power Bank 10000mAh", "tags": ["electronics", "charger", "portable"] },
+  { "id": "p09", "shopifyProductId": "gid://Product/09", "title": "Bamboo Chopping Board", "tags": ["kitchen", "bamboo", "home"] },
+  { "id": "p10", "shopifyProductId": "gid://Product/10", "title": "Basmati Rice 5kg", "tags": ["grocery", "rice", "basmati"] }
+]
