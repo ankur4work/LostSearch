@@ -23,6 +23,10 @@ const CSP_DIRECTIVES = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // ESLint runs as a separate step in CI (`pnpm lint`). Disabling here
+  // so trivial lint issues (unused imports, unescaped quotes) don't block
+  // production image builds. Real type errors are still caught by `tsc`.
+  eslint: { ignoreDuringBuilds: true },
   // `output: 'standalone'` was previously enabled for smaller Docker images,
   // but the worker entrypoint (jobs/worker.ts) imports from lib/ + server/
   // which aren't in the standalone trace. We run both web and worker from
