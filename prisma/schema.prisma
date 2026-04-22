@@ -193,9 +193,9 @@ model SynonymApplied {
   similarity        Float?
   appliedAt         DateTime @default(now()) @map("applied_at")
   shopifySynonymId  String?  @map("shopify_synonym_id")
-  /** 'merchant' | 'auto' | 'remove' — remove rows are the undo audit trail. */
+  /// 'merchant' | 'auto' | 'remove' — remove rows are the undo audit trail.
   source            String
-  /** Pointer to the original apply row that this row undoes (when source='remove'). */
+  /// Pointer to the original apply row that this row undoes (when source='remove').
   undoesId          String?  @map("undoes_id")
   estimatedImpactCents Int?  @map("estimated_impact_cents")
 
@@ -235,7 +235,7 @@ model BillingEvent {
 
 model FeatureFlag {
   id         String   @id @default(cuid())
-  /** NULL = global default; otherwise scoped to one store. */
+  /// NULL = global default; otherwise scoped to one store.
   storeId    String?  @map("store_id")
   key        String
   enabled    Boolean  @default(false)
