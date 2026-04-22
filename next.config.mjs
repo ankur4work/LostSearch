@@ -23,7 +23,10 @@ const CSP_DIRECTIVES = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: 'standalone',
+  // `output: 'standalone'` was previously enabled for smaller Docker images,
+  // but the worker entrypoint (jobs/worker.ts) imports from lib/ + server/
+  // which aren't in the standalone trace. We run both web and worker from
+  // the same image, so we keep the full source in the runner stage instead.
   experimental: {
     serverComponentsExternalPackages: [
       '@shopify/shopify-api',
