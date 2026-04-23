@@ -5,7 +5,8 @@ import { verifyOAuthHmac } from '@/lib/shopify/hmac';
 import { OAuthCallbackSchema, isValidShopDomain } from '@/lib/shopify/validators';
 import { upsertStoreWithToken } from '@/lib/shopify/store';
 import { MANDATORY_WEBHOOKS } from '@/lib/shopify/client';
-import { enqueueInstallBackfill } from '@/jobs/schedule';
+// jobs/schedule imported dynamically — the transitive BullMQ Queue init
+// was tripping Next's build-time route analysis with Redis connect attempts.
 import { track } from '@/lib/analytics';
 import { consumeOAuthState } from '@/lib/shopify/oauth-state';
 import { publicRateLimit } from '@/lib/rate-limit';
@@ -67,6 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   await registerMandatoryWebhooks(shop, tokenJson.access_token);
+  const { enqueueInstallBackfill } = await import('@/jobs/schedule');
   await enqueueInstallBackfill(store.id);
   track({
     event: 'app_installed',

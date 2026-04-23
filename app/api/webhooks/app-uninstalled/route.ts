@@ -3,7 +3,7 @@ import { verifyWebhookHmac } from '@/lib/shopify/hmac';
 import { markStoreUninstalled } from '@/lib/shopify/store';
 import { isValidShopDomain } from '@/lib/shopify/validators';
 import { prisma } from '@/lib/prisma';
-import { cancelStoreJobs } from '@/jobs/schedule';
+// jobs/schedule imported dynamically inside the handler — see auth/callback/route.ts.
 import { logger } from '@/lib/logger';
 import { track } from '@/lib/analytics';
 
@@ -26,6 +26,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   await markStoreUninstalled(shop);
   const store = await prisma.store.findUnique({ where: { shopDomain: shop } });
   if (store) {
+    const { cancelStoreJobs } = await import('@/jobs/schedule');
     await cancelStoreJobs(store.id);
     track({ event: 'app_uninstalled', distinctId: store.id, properties: { shop } });
   }

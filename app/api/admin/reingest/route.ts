@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { requireAdminForRoute } from '@/lib/admin-guard';
-import { enqueueInstallBackfill } from '@/jobs/schedule';
+// jobs/schedule imported dynamically — see auth/callback/route.ts.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'store not active' }, { status: 404 });
   }
 
+  const { enqueueInstallBackfill } = await import('@/jobs/schedule');
   await enqueueInstallBackfill(store.id);
   logger.info({ storeId: store.id, shop: store.shopDomain }, 'admin re-ingest enqueued');
   return NextResponse.redirect(new URL('/admin', req.url), 303);
