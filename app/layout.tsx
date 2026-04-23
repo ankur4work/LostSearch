@@ -13,8 +13,13 @@ export default function RootLayout({ children }: { children: ReactNode }): JSX.E
   return (
     <html lang="en">
       <head>
+        {/* App Bridge MUST be the first script tag, no async/defer/type=module.
+            Shopify refuses to initialize otherwise. */}
+        <script
+          src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+          data-api-key={process.env.SHOPIFY_API_KEY ?? ''}
+        />
         <meta name="shopify-api-key" content={process.env.SHOPIFY_API_KEY ?? ''} />
-        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" async />
       </head>
       <body>
         <Providers>{children}</Providers>
