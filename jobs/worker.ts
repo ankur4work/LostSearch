@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq';
+import { Worker, type Job } from 'bullmq';
 import {
   connection,
   QUEUES,
@@ -16,7 +16,9 @@ import { seedCronJobs } from './schedule';
 import { moveToDlq } from './dlq';
 import { logger } from '@/lib/logger';
 
-const handlers: Record<IngestionJobName, Parameters<typeof Worker>[1]> = {
+type IngestionHandler = (job: Job<IngestionJobData, unknown, IngestionJobName>) => Promise<void>;
+
+const handlers: Record<IngestionJobName, IngestionHandler> = {
   'ingest:search': ingestSearchProcessor,
   'ingest:orders': ingestOrdersProcessor,
   'ingest:products': ingestProductsProcessor,
