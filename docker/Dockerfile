@@ -10,14 +10,20 @@ RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
-# ---- deps ----
+# ---- deps (full, includes devDependencies for build) ----
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* ./
 # `--prod=false` forces pnpm to install devDependencies even when Coolify
 # injects NODE_ENV=production via build ARGs. We need prisma + typescript +
 # next CLI at build time — they live in devDependencies.
-# `|| pnpm install` handles the missing-lockfile case for first deploys.
 RUN pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
+
+# ---- prod-deps (production-only, smaller — used by the runner stage) ----
+# This cuts the final image by ~700MB vs copying full node_modules. tsx is
+# in `dependencies` so the worker's `tsx jobs/worker.ts` still works.
+FROM base AS prod-deps
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile --prod || pnpm install --prod
 
 # ---- build ----
 FROM base AS builder
@@ -67,10 +73,13 @@ ENV PORT=3000
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-# Full source tree + node_modules — needed because the worker entrypoint
-# (jobs/worker.ts) is tsx-executed at runtime and imports from lib/,
-# server/, jobs/. Standalone-only output would omit these.
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Production-only node_modules (from the prod-deps stage) — excludes
+# devDependencies to keep the image small. Also needs the Prisma client
+# files which `prisma generate` writes into deps' node_modules; we copy
+# those separately from the builder.
+COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.pnpm/@prisma+client* ./node_modules/.pnpm/
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 # /app/public is optional — Next serves static assets from there if present.
 # We don't ship any yet, so the folder doesn't exist in the repo and we skip
