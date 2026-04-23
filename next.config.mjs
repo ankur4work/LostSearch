@@ -25,8 +25,13 @@ const nextConfig = {
   poweredByHeader: false,
   // ESLint runs as a separate step in CI (`pnpm lint`). Disabling here
   // so trivial lint issues (unused imports, unescaped quotes) don't block
-  // production image builds. Real type errors are still caught by `tsc`.
+  // production image builds.
   eslint: { ignoreDuringBuilds: true },
+  // TypeScript type check runs as a separate CI step (`pnpm typecheck`).
+  // Next's inline tsc pass was OOM-killing the build container on our
+  // memory-constrained Coolify host. Skipping here keeps prod builds
+  // fast + stable; real type safety is enforced in CI + local dev.
+  typescript: { ignoreBuildErrors: true },
   // `output: 'standalone'` was previously enabled for smaller Docker images,
   // but the worker entrypoint (jobs/worker.ts) imports from lib/ + server/
   // which aren't in the standalone trace. We run both web and worker from
