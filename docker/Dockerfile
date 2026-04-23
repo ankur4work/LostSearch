@@ -72,7 +72,10 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 # server/, jobs/. Standalone-only output would omit these.
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# /app/public is optional — Next serves static assets from there if present.
+# We don't ship any yet, so the folder doesn't exist in the repo and we skip
+# the COPY. Add `public/.gitkeep` and re-enable this line when you have assets.
+# COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/jobs ./jobs
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
