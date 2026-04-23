@@ -74,12 +74,8 @@ ENV PORT=3000
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 # Production-only node_modules (from the prod-deps stage) — excludes
-# devDependencies to keep the image small. Also needs the Prisma client
-# files which `prisma generate` writes into deps' node_modules; we copy
-# those separately from the builder.
+# devDependencies to keep the image small.
 COPY --from=prod-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.pnpm/@prisma+client* ./node_modules/.pnpm/
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 # /app/public is optional — Next serves static assets from there if present.
 # We don't ship any yet, so the folder doesn't exist in the repo and we skip
@@ -93,6 +89,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
+
+# Regenerate Prisma client against prod-deps node_modules — the client
+# files written by `prisma generate` in the builder live under that
+# stage's node_modules tree; rather than hunt them via fragile globs, we
+# just run generate again here. Fast (~2s), idempotent, bulletproof.
+RUN ./node_modules/.bin/prisma generate
 
 USER nextjs
 EXPOSE 3000
