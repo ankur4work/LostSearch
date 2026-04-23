@@ -76,9 +76,19 @@ export function GapDetailModal({ open, gap, currency, onClose }: Props): JSX.Ele
               background="bg-surface-secondary"
               borderRadius="200"
             >
-              <Text as="pre" variant="bodySm" breakWord>
+              <pre
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  fontFamily:
+                    'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
                 {JSON.stringify(gap.reasoning ?? {}, null, 2)}
-              </Text>
+              </pre>
             </Box>
           </BlockStack>
 
