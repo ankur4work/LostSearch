@@ -42,14 +42,21 @@ async function main(): Promise<void> {
   ];
 
   await prisma.searchQuery.createMany({
-    data: samples.map((s) => ({
-      storeId: store.id,
-      query: s.q,
-      queryNormalized: s.q.toLowerCase().replace(/\s+/g, ' ').trim(),
-      occurredAt: new Date(now.getTime() - Math.random() * 7 * 86400_000),
-      resultCount: s.rc,
-      clickCount: s.cc,
-    })),
+    data: samples.map((s) => {
+      const occurredAt = new Date(now.getTime() - Math.random() * 7 * 86400_000);
+      const dateBucket = new Date(
+        Date.UTC(occurredAt.getUTCFullYear(), occurredAt.getUTCMonth(), occurredAt.getUTCDate()),
+      );
+      return {
+        storeId: store.id,
+        query: s.q,
+        queryNormalized: s.q.toLowerCase().replace(/\s+/g, ' ').trim(),
+        occurredAt,
+        dateBucket,
+        resultCount: s.rc,
+        clickCount: s.cc,
+      };
+    }),
     skipDuplicates: true,
   });
 
