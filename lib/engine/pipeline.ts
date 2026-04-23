@@ -12,7 +12,7 @@ import { getQueryEmbedding } from './embeddings-cache';
 import { topKSemanticMatches } from './semantic';
 import { invalidate } from '../cache';
 
-const redisPub = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+const redisPub = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
 const CLASSIFICATION_COMPLETE_CHANNEL = 'classification.complete';
 
 interface AggregateRow {

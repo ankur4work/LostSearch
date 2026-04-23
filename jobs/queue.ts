@@ -2,7 +2,7 @@ import { Queue, QueueEvents } from 'bullmq';
 import IORedis from 'ioredis';
 import { env } from '@/lib/env';
 
-export const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+export const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
 
 export const QUEUES = {
   INGESTION: 'ingestion',

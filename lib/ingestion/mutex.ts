@@ -2,7 +2,7 @@ import IORedis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import { env } from '../env';
 
-const redis = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+const redis = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
 
 const RELEASE_SCRIPT = `
 if redis.call('GET', KEYS[1]) == ARGV[1] then

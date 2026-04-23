@@ -4,7 +4,7 @@ import { env } from '../env';
 import { embed } from '../ingestion/embeddings';
 import { engineConfig } from './config';
 
-const redis = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null });
+const redis = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
 
 const KEY_PREFIX = 'qemb:v1:';
 
