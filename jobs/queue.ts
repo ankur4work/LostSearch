@@ -1,4 +1,4 @@
-import { Queue, QueueEvents } from 'bullmq';
+import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { env } from '@/lib/env';
 
@@ -75,4 +75,7 @@ export const digestQueue = new Queue<DigestJobPayload, unknown, 'digest:weekly'>
   { connection, defaultJobOptions },
 );
 
-export const ingestionEvents = new QueueEvents(QUEUES.INGESTION, { connection });
+// QueueEvents was exported here previously but never consumed anywhere; it
+// was eagerly subscribing to Redis pub/sub at module load, breaking Next.js
+// build-time route analysis. Removed. Re-add via a factory function if any
+// future caller actually needs it.
