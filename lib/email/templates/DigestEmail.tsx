@@ -65,8 +65,10 @@ export function DigestEmail(props: DigestEmailProps): JSX.Element {
     <Html>
       <Head />
       <Preview>
-        {props.storeName}: {props.gapsCount} new search gaps worth about{' '}
-        {formatMoney(props.totalImpactCents, props.currency)}/month
+        {`${props.storeName}: ${props.gapsCount} new search gaps worth about ${formatMoney(
+          props.totalImpactCents,
+          props.currency,
+        )}/month`}
       </Preview>
       <Body style={{ backgroundColor: COLORS.bg, fontFamily: 'Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif', margin: 0 }}>
         <Container style={{ maxWidth: 600, margin: '0 auto', padding: '24px 16px' }}>
