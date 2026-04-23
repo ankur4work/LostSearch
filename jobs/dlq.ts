@@ -1,20 +1,21 @@
 import type { Job } from 'bullmq';
-import { dlq } from './queue';
+import { dlq, type DlqPayload } from './queue';
 import { logger } from '@/lib/logger';
 
 /**
- * Move a terminally-failed ingestion job to the DLQ for manual inspection and
- * fire a structured alert log line. A downstream alert manager (e.g. Grafana
- * alert on log stream) can match `dlq=true` to page an operator.
+ * Move a terminally-failed job to the DLQ for manual inspection and fire a
+ * structured alert log line. Downstream alert managers match `dlq=true`.
  */
 export async function moveToDlq<T extends { storeId: string }>(
   job: Job<T>,
   err: Error,
 ): Promise<void> {
-  await dlq.add('dead', {
-    ...job.data,
+  const payload: DlqPayload = {
+    ...(job.data as unknown as Record<string, unknown>),
+    storeId: job.data.storeId,
     originalError: err.message.slice(0, 1000),
-  } as T & { originalError: string });
+  };
+  await dlq.add('dead', payload);
   logger.error(
     {
       dlq: true,

@@ -36,7 +36,16 @@ export const ingestionQueue = new Queue<IngestionJobData, unknown, IngestionJobN
   { connection, defaultJobOptions },
 );
 
-export const dlq = new Queue<IngestionJobData & { originalError: string }, unknown, string>(
+// DLQ accepts ANY shape of failed job (ingestion, classify, digest, future).
+// Typing loosely to `Record<string, unknown>` — downstream inspection reads
+// the raw payload; strict typing here would force every queue to match the
+// DLQ's type signature.
+export interface DlqPayload extends Record<string, unknown> {
+  storeId: string;
+  originalError: string;
+}
+
+export const dlq = new Queue<DlqPayload, unknown, string>(
   QUEUES.DLQ,
   { connection, defaultJobOptions: { removeOnComplete: false, removeOnFail: false } },
 );
