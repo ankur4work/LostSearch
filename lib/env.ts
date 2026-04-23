@@ -62,9 +62,53 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>;
 
+/**
+ * Static stub used ONLY during `next build` (phase-production-build).
+ * Next.js evaluates route modules at build time for sitemap/metadata
+ * generation; those modules import this env. We don't want to force
+ * Coolify/CI to pass real secrets at build time, so we return a typed
+ * stub. At runtime (container start) real env vars are present and
+ * validation runs normally — if they're missing THEN we fail fast.
+ */
+const BUILD_STUB: Env = {
+  NODE_ENV: 'production',
+  LOG_LEVEL: 'info',
+  SHOPIFY_API_KEY: 'build-time-stub',
+  SHOPIFY_API_SECRET: 'build-time-stub',
+  SHOPIFY_APP_URL: 'https://build-stub.invalid',
+  SHOPIFY_SCOPES: 'read_products',
+  DATABASE_URL: 'postgresql://stub:stub@localhost:5432/stub',
+  REDIS_URL: 'redis://localhost:6379',
+  SESSION_SECRET: '0'.repeat(64),
+  CLASSIFY_FUZZY_THRESHOLD: 0.35,
+  CLASSIFY_SEMANTIC_THRESHOLD: 0.72,
+  CLASSIFY_LOW_VOLUME_CUTOFF: 5,
+  CLASSIFY_TYPE3_OCCURRENCE_MIN: 10,
+  CLASSIFY_REVENUE_BAND_PCT: 0.2,
+  CLASSIFY_QUERY_EMBEDDING_TTL_DAYS: 7,
+  CLASSIFY_WINDOW_DAYS: 30,
+  CLASSIFY_PARALLELISM: 50,
+  FROM_EMAIL: 'no-reply@build.invalid',
+  SUPPORT_EMAIL: 'support@build.invalid',
+  COMPANY_ADDRESS: 'build stub',
+  POSTHOG_HOST: 'https://app.posthog.com',
+  BILLING_TEST_MODE: false,
+  GROWTH_PLAN_PRICE_USD: 15,
+  GROWTH_PLAN_TRIAL_DAYS: 14,
+  SENTRY_TRACES_SAMPLE_RATE: 0.1,
+  ADMIN_EMAILS: '',
+  PRIVACY_CONTACT_EMAIL: 'privacy@build.invalid',
+  RATE_LIMIT_MERCHANT_PER_MIN: 100,
+  RATE_LIMIT_PUBLIC_PER_MIN: 30,
+  DASHBOARD_SUMMARY_CACHE_TTL_SEC: 60,
+};
+
 function loadEnv(): Env {
   const parsed = EnvSchema.safeParse(process.env);
   if (!parsed.success) {
+    if (process.env.NEXT_PHASE === 'phase-production-build') {
+      return BUILD_STUB;
+    }
     const formatted = parsed.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
       .join('\n');
