@@ -48,7 +48,7 @@ vi.mock('@/lib/trpc/client', () => ({
     },
     synonyms: {
       appliedThisWeek: { useQuery: () => ({ data: [], isLoading: false }) },
-      apply: {
+      addSynonym: {
         useMutation: (opts?: { onSuccess?: () => void }) => ({
           mutateAsync: async (input: unknown) => {
             const r = await applyMock();

@@ -60,7 +60,10 @@ async function requireStore(ctx: { session: { storeId: string | null } | null; p
 }
 
 export const synonymsRouter = router({
-  apply: protectedProcedure
+  // `addSynonym` (not `apply`) — tRPC reserves function prototype names
+  // like `apply`, `call`, `bind` because they collide with the client's
+  // generated object shape.
+  addSynonym: protectedProcedure
     .input(
       z.object({
         classificationId: z.string().cuid(),

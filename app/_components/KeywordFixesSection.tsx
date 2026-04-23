@@ -40,7 +40,7 @@ export function KeywordFixesSection({ plan, storeId, onUpgrade }: Props): JSX.El
   const [activeRow, setActiveRow] = useState<Type2Gap | null>(null);
   const [overflowFor, setOverflowFor] = useState<string | null>(null);
 
-  const apply = trpc.synonyms.apply.useMutation({
+  const apply = trpc.synonyms.addSynonym.useMutation({
     onSuccess: () => {
       utils.dashboard.gaps.invalidate();
       utils.synonyms.appliedThisWeek.invalidate();
