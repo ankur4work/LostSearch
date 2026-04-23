@@ -68,11 +68,14 @@ export async function ingestOrders(
   let storeCurrency = 'USD';
 
   do {
-    const resp = await client.graphql<OrdersResponse>(ORDERS_QUERY, {
-      first: 250,
-      after: cursor,
-      q,
-    });
+    // Explicit type annotation — the do/while + cursor reassignment confuses
+    // TS's inference, so `resp` silently became `any` without this.
+    const resp: Awaited<ReturnType<typeof client.graphql<OrdersResponse>>> =
+      await client.graphql<OrdersResponse>(ORDERS_QUERY, {
+        first: 250,
+        after: cursor,
+        q,
+      });
     if (resp.errors?.length) {
       throw new Error(`orders query errors: ${resp.errors.map((e) => e.message).join('; ')}`);
     }
