@@ -141,9 +141,7 @@ export const dashboardRouter = router({
 async function computeSummary(
   prisma: PrismaClient,
   storeId: string,
-): ReturnType<typeof emptySummary> extends infer R
-  ? R
-  : never {
+): Promise<ReturnType<typeof emptySummary>> {
   const [store, agg, counts, latest, searchVolume30, topGap] = await Promise.all([
     prisma.store.findUnique({
       where: { id: storeId },
@@ -228,7 +226,7 @@ async function computeSummary(
         }
       : null,
     lastUpdatedAt: latest._max.createdAt,
-  } as never;
+  };
 }
 
 function emptySummary(): {
