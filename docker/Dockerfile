@@ -21,6 +21,40 @@ RUN pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
 
 # ---- build ----
 FROM base AS builder
+
+# Next.js evaluates route modules at build time (for sitemap.xml, static
+# metadata, etc.). Those modules import lib/env.ts, which validates env
+# vars via Zod and throws on missing. Coolify passes env vars as build
+# ARGs — we must declare them here so the Zod validator sees real values.
+# Declaring them as ENV (not just ARG) so nested shell commands see them.
+ARG SHOPIFY_API_KEY
+ARG SHOPIFY_API_SECRET
+ARG SHOPIFY_APP_URL
+ARG SHOPIFY_SCOPES
+ARG DATABASE_URL
+ARG REDIS_URL
+ARG SESSION_SECRET
+ARG NODE_ENV=production
+ARG LOG_LEVEL=info
+ARG FROM_EMAIL
+ARG SUPPORT_EMAIL
+ARG COMPANY_ADDRESS
+ARG PRIVACY_CONTACT_EMAIL
+
+ENV SHOPIFY_API_KEY=$SHOPIFY_API_KEY \
+    SHOPIFY_API_SECRET=$SHOPIFY_API_SECRET \
+    SHOPIFY_APP_URL=$SHOPIFY_APP_URL \
+    SHOPIFY_SCOPES=$SHOPIFY_SCOPES \
+    DATABASE_URL=$DATABASE_URL \
+    REDIS_URL=$REDIS_URL \
+    SESSION_SECRET=$SESSION_SECRET \
+    NODE_ENV=$NODE_ENV \
+    LOG_LEVEL=$LOG_LEVEL \
+    FROM_EMAIL=$FROM_EMAIL \
+    SUPPORT_EMAIL=$SUPPORT_EMAIL \
+    COMPANY_ADDRESS=$COMPANY_ADDRESS \
+    PRIVACY_CONTACT_EMAIL=$PRIVACY_CONTACT_EMAIL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm prisma generate
