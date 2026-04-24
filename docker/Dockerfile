@@ -96,9 +96,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
 # just run generate again here. Fast (~2s), idempotent, bulletproof.
 RUN ./node_modules/.bin/prisma generate
 
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 USER nextjs
 EXPOSE 3000
 
-# Default command is the web server. Worker container overrides this with
-# `pnpm worker` via Coolify's "Custom Start Command" field.
-CMD ["pnpm", "start"]
+# Entrypoint dispatches on APP_MODE env var: "web" (default) runs Next.js,
+# "worker" runs the BullMQ worker. Same image, two deployments.
+CMD ["/app/entrypoint.sh"]
