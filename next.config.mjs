@@ -36,6 +36,12 @@ const nextConfig = {
   // but the worker entrypoint (jobs/worker.ts) imports from lib/ + server/
   // which aren't in the standalone trace. We run both web and worker from
   // the same image, so we keep the full source in the runner stage instead.
+  //
+  // Trace collection (`Collecting build traces ...`) was OOM-killing the
+  // build container on our 15GB Coolify host — it loads every module into
+  // a single Node process after compilation. We only need traces for
+  // standalone output (which we don't use), so disable it entirely.
+  outputFileTracing: false,
   experimental: {
     serverComponentsExternalPackages: [
       '@shopify/shopify-api',

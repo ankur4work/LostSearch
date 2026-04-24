@@ -64,6 +64,9 @@ ENV SHOPIFY_API_KEY=$SHOPIFY_API_KEY \
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm prisma generate
+# Bump Node heap — Next's build (especially trace collection) spikes memory
+# and Alpine's default ~1.7GB V8 limit was triggering OOM kills on our host.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN pnpm build
 
 # ---- runtime ----
