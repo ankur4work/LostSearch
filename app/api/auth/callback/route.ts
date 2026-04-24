@@ -68,6 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   await registerMandatoryWebhooks(shop, tokenJson.access_token);
+  await registerStorefrontTracker(shop, tokenJson.access_token);
   const { enqueueInstallBackfill } = await import('@/jobs/schedule');
   await enqueueInstallBackfill(store.id);
   track({
@@ -84,6 +85,38 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   appUrl.searchParams.set('shop', shop);
 
   return NextResponse.redirect(appUrl.toString(), 302);
+}
+
+/**
+ * Inject our storefront tracker via Shopify ScriptTag API. The tracker
+ * captures `search_submitted` + `search_viewed` events and POSTs them to
+ * /api/events/search on our backend — this is how we collect search
+ * analytics WITHOUT requiring the merchant to install Shopify's Search &
+ * Discovery app.
+ *
+ * Idempotent: Shopify rejects duplicate `src` with a 422 which we swallow.
+ */
+async function registerStorefrontTracker(shop: string, accessToken: string): Promise<void> {
+  const body = {
+    script_tag: {
+      event: 'onload',
+      src: `${env.SHOPIFY_APP_URL}/tracker.js`,
+      display_scope: 'online_store',
+    },
+  };
+  const resp = await fetch(`https://${shop}/admin/api/2024-10/script_tags.json`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok && resp.status !== 422) {
+    logger.warn({ shop, status: resp.status }, 'Storefront tracker ScriptTag registration failed');
+  } else {
+    logger.info({ shop }, 'Storefront tracker registered on install');
+  }
 }
 
 async function registerMandatoryWebhooks(shop: string, accessToken: string): Promise<void> {
