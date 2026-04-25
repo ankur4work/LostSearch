@@ -25,7 +25,6 @@ export function Providers({ children }: { children: ReactNode }): JSX.Element {
         <a href="/" rel="home">
           Dashboard
         </a>
-        <a href="/methodology">Methodology</a>
       </NavMenu>
       <TrpcProvider>{children}</TrpcProvider>
     </AppProvider>

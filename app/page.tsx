@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Page, Layout, BlockStack, SkeletonBodyText, Card } from '@shopify/polaris';
+import { Page, Layout, BlockStack, SkeletonBodyText, Card, Banner, ProgressBar } from '@shopify/polaris';
 import { trpc } from '@/lib/trpc/client';
 import { RevenueHero } from './_components/RevenueHero';
 import { HeaderBar } from './_components/HeaderBar';
@@ -9,7 +9,6 @@ import { ProductGapsSection } from './_components/ProductGapsSection';
 import { KeywordFixesSection } from './_components/KeywordFixesSection';
 import { ResultsNoClickSection } from './_components/ResultsNoClickSection';
 import {
-  IngestingEmpty,
   InsufficientDataEmpty,
   NoGapsFoundEmpty,
 } from './_components/EmptyStates';
@@ -59,19 +58,11 @@ export default function DashboardPage(): JSX.Element {
     );
   }
 
-  // Ingestion still running → redirect user experience: show progress card.
+  // Ingestion progress is shown as a non-blocking banner above the dashboard
+  // rather than a full-screen blocker — merchants want to SEE the structure
+  // even before data lands. Empty sections explain themselves below.
   const ingestionReady = onboarding.data?.ready ?? true;
-  if (!ingestionReady) {
-    return (
-      <Page title="Search Failure Miner">
-        <Layout>
-          <Layout.Section>
-            <IngestingEmpty progressPct={onboarding.data?.overallPct ?? 0} />
-          </Layout.Section>
-        </Layout>
-      </Page>
-    );
-  }
+  const ingestPct = onboarding.data?.overallPct ?? 0;
 
   const s = summary.data;
   const showInsufficient = s.totalMonthlySearches < MIN_MONTHLY_SEARCHES;
@@ -86,6 +77,18 @@ export default function DashboardPage(): JSX.Element {
           lastSyncedAt={s.lastSyncedAt}
           onUpgrade={openUpgrade}
         />
+
+        {!ingestionReady && (
+          <Banner title="First-time sync in progress" tone="info">
+            <BlockStack gap="200">
+              <p>
+                We&rsquo;re fetching your products, recent orders, and historical search analytics.
+                The dashboard below will populate as data lands — usually within a few minutes.
+              </p>
+              <ProgressBar progress={ingestPct} size="small" />
+            </BlockStack>
+          </Banner>
+        )}
 
         {showInsufficient ? (
           <InsufficientDataEmpty />
