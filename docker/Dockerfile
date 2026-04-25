@@ -3,27 +3,37 @@
 # from the same image. For Coolify we deploy the same image twice with
 # different start commands.
 
+# syntax=docker/dockerfile:1.6
 FROM node:20-alpine AS base
 # OpenSSL: required at runtime by Prisma's query engine on Alpine.
 # libc6-compat: required by some native modules (sharp, msgpackr-extract).
 RUN apk add --no-cache openssl libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# Pin pnpm store to a known path so BuildKit cache mounts can target it
+# directly (default lives under $HOME which moves with USER directives).
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN pnpm config set store-dir /pnpm/store
 WORKDIR /app
 
 # ---- deps (full, includes devDependencies for build) ----
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* ./
+# BuildKit cache mount on the pnpm store: every package downloaded by any
+# previous build is reused here. First cold build still pays full price
+# (~19min on this VPS); every subsequent build drops to ~1-2min for install.
 # `--prod=false` forces pnpm to install devDependencies even when Coolify
-# injects NODE_ENV=production via build ARGs. We need prisma + typescript +
-# next CLI at build time — they live in devDependencies.
-RUN pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
+# injects NODE_ENV=production via build ARGs.
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
 
 # ---- prod-deps (production-only, smaller — used by the runner stage) ----
-# This cuts the final image by ~700MB vs copying full node_modules. tsx is
-# in `dependencies` so the worker's `tsx jobs/worker.ts` still works.
+# Same store cache as `deps`, so this stage finishes in seconds once `deps`
+# has populated the cache.
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod || pnpm install --prod
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --prod || pnpm install --prod
 
 # ---- build ----
 FROM base AS builder
