@@ -28,12 +28,13 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
 
 # ---- prod-deps (production-only, smaller — used by the runner stage) ----
-# Same store cache as `deps`, so this stage finishes in seconds once `deps`
-# has populated the cache.
-FROM base AS prod-deps
-COPY package.json pnpm-lock.yaml* ./
+# Builds FROM the deps stage (sequential, not parallel) and just prunes the
+# devDependencies away. Running deps + prod-deps as two parallel `pnpm
+# install` invocations was OOM-killing the build container on this 15GB
+# VPS while it tried to unpack ~1300 packages twice simultaneously.
+FROM deps AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod || pnpm install --prod
+    pnpm prune --prod
 
 # ---- build ----
 FROM base AS builder
