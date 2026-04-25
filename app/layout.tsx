@@ -4,8 +4,15 @@ import { Providers } from './providers';
 import '@shopify/polaris/build/esm/styles.css';
 import './globals.css';
 
+// Force runtime rendering — layout reads SHOPIFY_API_KEY from process.env to
+// inject the App Bridge `data-api-key`. If we let Next statically render this
+// at build time the value is baked as empty (Coolify only passes secrets at
+// runtime, not as build ARGs), which kills App Bridge → idToken() returns
+// nothing → every tRPC call 401s → dashboard hangs on skeleton loader.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
-  title: 'Search Failure Miner',
+  title: 'LostSearch — Search Failure Miner',
   description: 'Turn Shopify search gaps into revenue.',
 };
 
