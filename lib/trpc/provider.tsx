@@ -32,7 +32,8 @@ declare global {
 async function waitForShopifyBridge(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
 
-  for (let i = 0; i < 50; i += 1) {
+  // Poll up to 10 seconds (100 × 100ms) for App Bridge to initialize.
+  for (let i = 0; i < 100; i += 1) {
     if (typeof window.shopify?.idToken === 'function') {
       return true;
     }
@@ -65,7 +66,21 @@ export function TrpcProvider({ children }: { children: ReactNode }): JSX.Element
     let cancelled = false;
     void (async () => {
       const ready = await waitForShopifyBridge();
-      if (!ready || cancelled) return;
+      if (cancelled) return;
+
+      if (!ready) {
+        // App Bridge did not initialize within the timeout. This usually means
+        // the data-api-key on the <script> tag is empty, stale, or the page
+        // is not running inside a Shopify admin iframe.
+        // Still mark auth ready so the UI renders an error rather than hanging.
+        // eslint-disable-next-line no-console
+        console.error(
+          '[LostSearch] App Bridge not detected after 10s. Check that SHOPIFY_API_KEY matches the app client ID and the page is loaded inside Shopify admin.',
+          { apiKeyMeta: document.querySelector('meta[name="shopify-api-key"]')?.getAttribute('content') ?? '(missing)' },
+        );
+        setAuth({ ready: true });
+        return;
+      }
 
       for (let i = 0; i < 10 && !cancelled && !bootstrapComplete.current; i += 1) {
         const token = await getFreshShopifyIdToken();

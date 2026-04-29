@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import Script from 'next/script';
 import { Providers } from './providers';
 import '@shopify/polaris/build/esm/styles.css';
 import './globals.css';
@@ -17,18 +18,20 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+  const apiKey = process.env.SHOPIFY_API_KEY ?? '';
   return (
     <html lang="en">
       <head>
-        {/* App Bridge MUST be the first script tag, no async/defer/type=module.
-            Shopify refuses to initialize otherwise. */}
-        <script
-          src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
-          data-api-key={process.env.SHOPIFY_API_KEY ?? ''}
-        />
-        <meta name="shopify-api-key" content={process.env.SHOPIFY_API_KEY ?? ''} />
+        <meta name="shopify-api-key" content={apiKey} />
       </head>
       <body>
+        {/* next/script with beforeInteractive injects the script into <head>
+            before React hydration — required by App Bridge (no async/defer). */}
+        <Script
+          src="https://cdn.shopify.com/shopifycloud/app-bridge.js"
+          data-api-key={apiKey}
+          strategy="beforeInteractive"
+        />
         <Providers>{children}</Providers>
       </body>
     </html>
