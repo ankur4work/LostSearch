@@ -25,7 +25,8 @@ COPY package.json pnpm-lock.yaml* ./
 # `--prod=false` forces pnpm to install devDependencies even when Coolify
 # injects NODE_ENV=production via build ARGs.
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod=false || pnpm install --prod=false
+    pnpm install --frozen-lockfile --prod=false --network-concurrency=3 || \
+    pnpm install --prod=false --network-concurrency=3
 
 # ---- prod-deps (production-only, smaller — used by the runner stage) ----
 # Builds FROM the deps stage (sequential, not parallel) and just prunes the
@@ -34,7 +35,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # VPS while it tried to unpack ~1300 packages twice simultaneously.
 FROM deps AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm prune --prod
+    pnpm prune --prod --network-concurrency=3
 
 # ---- build ----
 FROM base AS builder
