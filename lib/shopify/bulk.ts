@@ -86,8 +86,12 @@ export async function runBulkQuery<T>(
       finished.errorCode,
     );
   }
-  if (finished.status !== 'COMPLETED' || !finished.url) {
+  if (finished.status !== 'COMPLETED') {
     throw new BulkOperationError(`Unexpected bulk op state: ${finished.status}`, finished.status);
+  }
+  if (!finished.url) {
+    // COMPLETED with no download URL = 0 matching records (empty store or no results).
+    return { objectCount: 0 };
   }
 
   const objectCount = Number(finished.objectCount ?? '0');
