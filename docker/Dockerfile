@@ -4,7 +4,7 @@
 # different start commands.
 
 # syntax=docker/dockerfile:1.6
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 # OpenSSL: required at runtime by Prisma's query engine on Alpine.
 # libc6-compat: required by some native modules (sharp, msgpackr-extract).
 RUN apk add --no-cache openssl libc6-compat
