@@ -35,7 +35,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # VPS while it tried to unpack ~1300 packages twice simultaneously.
 FROM deps AS prod-deps
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm prune --prod --network-concurrency=3
+    pnpm prune --prod
 
 # ---- build ----
 FROM base AS builder
