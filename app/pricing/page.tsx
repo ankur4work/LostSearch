@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Page, BlockStack, Card, Text, Button, Banner } from '@shopify/polaris';
 import { trpc } from '@/lib/trpc/client';
 import { useTrpcAuth } from '@/lib/trpc/provider';
@@ -40,8 +40,16 @@ export default function PricingPage(): JSX.Element {
     setUpgradeOpen(true);
   };
 
+  const goBack = useCallback(() => {
+    if (typeof window !== 'undefined' && window.shopify?.navigation?.navigate) {
+      window.shopify.navigation.navigate('/');
+    } else {
+      window.location.assign('/');
+    }
+  }, []);
+
   return (
-    <Page title="Pricing" backAction={{ content: 'Dashboard', url: '/' }}>
+    <Page title="Pricing" backAction={{ content: 'Home', onAction: goBack }}>
       <BlockStack gap="500">
         <Card>
           <BlockStack gap="200">

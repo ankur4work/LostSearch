@@ -22,6 +22,9 @@ declare global {
   interface Window {
     shopify?: {
       idToken?: () => Promise<string>;
+      navigation?: {
+        navigate: (url: string) => void;
+      };
     };
   }
 }

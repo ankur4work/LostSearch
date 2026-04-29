@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Page, BlockStack, Card, Text, Button, Divider } from '@shopify/polaris';
 import { trpc } from '@/lib/trpc/client';
 import { useTrpcAuth } from '@/lib/trpc/provider';
@@ -24,6 +24,14 @@ export default function HomePage(): JSX.Element {
     analytics.track('upgrade_cta_clicked', { where: 'home' });
     setUpgradeOpen(true);
   };
+
+  const navigate = useCallback((path: string) => {
+    if (typeof window !== 'undefined' && window.shopify?.navigation?.navigate) {
+      window.shopify.navigation.navigate(path);
+    } else {
+      window.location.assign(path);
+    }
+  }, []);
 
   return (
     <Page fullWidth>
@@ -117,8 +125,8 @@ export default function HomePage(): JSX.Element {
                 tells you exactly what to fix — usually within minutes of install.
               </p>
               <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                <a
-                  href="/dashboard"
+                <button
+                  onClick={() => navigate('/dashboard')}
                   style={{
                     background: '#fff',
                     color: '#4f46e5',
@@ -126,12 +134,13 @@ export default function HomePage(): JSX.Element {
                     fontWeight: 700,
                     padding: '10px 18px',
                     borderRadius: 10,
-                    textDecoration: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
                   }}
                 >
                   Open dashboard →
-                </a>
+                </button>
                 {plan === 'FREE' && (
                   <button
                     onClick={openUpgrade}
@@ -382,70 +391,31 @@ export default function HomePage(): JSX.Element {
 
         {/* QUICK NAV CARDS */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-          <a
-            href="/dashboard"
-            style={{
-              flex: '1 1 280px',
-              minWidth: 260,
-              background: '#fff',
-              border: '1px solid #e1e3e5',
-              borderRadius: 12,
-              padding: '20px 24px',
-              textDecoration: 'none',
-              color: '#202223',
-              transition: 'all 0.15s',
-            }}
-          >
-            <div style={{ fontSize: 24, marginBottom: 10 }}>📊</div>
-            <Text as="h3" variant="headingMd">
-              Dashboard
-            </Text>
-            <Text as="p" tone="subdued" variant="bodyMd">
-              Live status, real searches, revenue gaps and fixes.
-            </Text>
-          </a>
-          <a
-            href="/pricing"
-            style={{
-              flex: '1 1 280px',
-              minWidth: 260,
-              background: '#fff',
-              border: '1px solid #e1e3e5',
-              borderRadius: 12,
-              padding: '20px 24px',
-              textDecoration: 'none',
-              color: '#202223',
-            }}
-          >
-            <div style={{ fontSize: 24, marginBottom: 10 }}>💎</div>
-            <Text as="h3" variant="headingMd">
-              Pricing
-            </Text>
-            <Text as="p" tone="subdued" variant="bodyMd">
-              Compare Free vs Growth — start a 14-day free trial any time.
-            </Text>
-          </a>
-          <a
-            href="/methodology"
-            style={{
-              flex: '1 1 280px',
-              minWidth: 260,
-              background: '#fff',
-              border: '1px solid #e1e3e5',
-              borderRadius: 12,
-              padding: '20px 24px',
-              textDecoration: 'none',
-              color: '#202223',
-            }}
-          >
-            <div style={{ fontSize: 24, marginBottom: 10 }}>📖</div>
-            <Text as="h3" variant="headingMd">
-              Methodology
-            </Text>
-            <Text as="p" tone="subdued" variant="bodyMd">
-              How we classify gaps and estimate the revenue at risk.
-            </Text>
-          </a>
+          {[
+            { path: '/dashboard', icon: '📊', title: 'Dashboard', desc: 'Live status, real searches, revenue gaps and fixes.' },
+            { path: '/pricing',   icon: '💎', title: 'Pricing',   desc: 'Compare Free vs Growth — start a 14-day free trial any time.' },
+            { path: '/methodology', icon: '📖', title: 'Methodology', desc: 'How we classify gaps and estimate the revenue at risk.' },
+          ].map(({ path, icon, title, desc }) => (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              style={{
+                flex: '1 1 280px',
+                minWidth: 260,
+                background: '#fff',
+                border: '1px solid #e1e3e5',
+                borderRadius: 12,
+                padding: '20px 24px',
+                cursor: 'pointer',
+                color: '#202223',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ fontSize: 24, marginBottom: 10 }}>{icon}</div>
+              <Text as="h3" variant="headingMd">{title}</Text>
+              <Text as="p" tone="subdued" variant="bodyMd">{desc}</Text>
+            </button>
+          ))}
         </div>
 
         <UpgradeModal
