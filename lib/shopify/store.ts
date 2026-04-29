@@ -38,6 +38,19 @@ export async function getStoreToken(shopDomain: string): Promise<string | null> 
   return decrypt(store.accessToken);
 }
 
+export async function refreshStoreToken(input: StoreUpsertInput): Promise<Store> {
+  return prisma.store.update({
+    where: { shopDomain: input.shopDomain },
+    data: {
+      accessToken: encrypt(input.accessToken),
+      scope: input.scope,
+      uninstalledAt: null,
+      scheduledRedactAt: null,
+      installedAt: new Date(),
+    },
+  });
+}
+
 export async function markStoreUninstalled(shopDomain: string): Promise<void> {
   await prisma.store.updateMany({
     where: { shopDomain, uninstalledAt: null },

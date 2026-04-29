@@ -19,6 +19,11 @@ export const shopify = shopifyApi({
   hostName: appUrl.host,
   hostScheme: appUrl.protocol.replace(':', '') as 'http' | 'https',
   isEmbeddedApp: true,
+  future: {
+    lineItemBilling: true,
+    customerAddressDefaultFix: true,
+    unstable_managedPricingSupport: true,
+  } as never,
   logger: {
     log: async (severity, message) => {
       const map: Record<LogSeverity, 'error' | 'warn' | 'info' | 'debug'> = {
@@ -67,6 +72,19 @@ export class ShopifyAPIError extends Error {
   ) {
     super(message);
     this.name = 'ShopifyAPIError';
+  }
+}
+
+/**
+ * Thrown when Shopify returns 401 or 403 — almost always means the stored
+ * access token is stale (non-expiring token rejected in 2025+). Workers that
+ * catch this should re-queue with a delay so the next embedded-app open can
+ * trigger token exchange before retrying.
+ */
+export class ShopifyAuthError extends ShopifyAPIError {
+  constructor(shop: string, requestId: string, body?: unknown) {
+    super(`Shopify auth error — token likely stale`, 403, shop, requestId, body);
+    this.name = 'ShopifyAuthError';
   }
 }
 
@@ -156,6 +174,15 @@ export class ShopifyClient {
         await sleep(wait);
         attempt += 1;
         continue;
+      }
+
+      if (res.status === 401 || res.status === 403) {
+        const text = await res.text().catch(() => '');
+        logger.warn(
+          { shop: this.shopDomain, requestId, status: res.status, body: text.slice(0, 500) },
+          'Shopify auth error — full response',
+        );
+        throw new ShopifyAuthError(this.shopDomain, requestId, text);
       }
 
       if (!res.ok) {

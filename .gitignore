@@ -17,3 +17,6 @@ prisma/*.db-journal
 next-env.d.ts
 .claude/
 .claude
+tsconfig.tsbuildinfo
+shopify.app.local.toml
+test-data/

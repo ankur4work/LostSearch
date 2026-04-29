@@ -65,8 +65,8 @@ export const billingRouter = router({
       const trialDays = env.GROWTH_PLAN_TRIAL_DAYS;
 
       const resp = await client.graphql<CreateChargeResp>(CREATE_CHARGE_MUTATION, {
-        name: `Search Failure Miner — ${input.plan}`,
-        returnUrl: `${env.SHOPIFY_APP_URL}/billing/callback?shop=${encodeURIComponent(store.shopDomain)}`,
+        name: `LostSearch — ${input.plan}`,
+        returnUrl: `${ctx.appUrl}/billing/callback?shop=${encodeURIComponent(store.shopDomain)}`,
         trialDays,
         test: env.BILLING_TEST_MODE,
         lineItems: [
@@ -85,7 +85,7 @@ export const billingRouter = router({
       if (userErrors.length > 0) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: `Shopify billing rejected: ${userErrors.map((e) => e.message).join('; ')}`,
+          message: `Shopify billing rejected: ${userErrors.map((e) => `${e.field?.join('.')}: ${e.message}`).join('; ')}`,
         });
       }
       const confirmationUrl = resp.data?.appSubscriptionCreate.confirmationUrl;

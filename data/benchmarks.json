@@ -1,14 +1,22 @@
 {
-  "version": 1,
-  "updatedAt": "2026-04-22",
-  "source": "PRD §10.3 + industry reports",
+  "version": 2,
+  "updatedAt": "2026-04-29",
+  "source": "Industry reports + Shopify Commerce Trends 2024",
   "default": 0.08,
+  "defaultAovCents": 6000,
   "categories": {
     "FASHION": 0.10,
     "BEAUTY": 0.12,
     "ELECTRONICS": 0.075,
     "HOME": 0.09,
     "FOOD": 0.14
+  },
+  "categoryAovCents": {
+    "FASHION": 6500,
+    "BEAUTY": 4500,
+    "ELECTRONICS": 12500,
+    "HOME": 8500,
+    "FOOD": 4000
   },
   "aliases": {
     "APPAREL": "FASHION",

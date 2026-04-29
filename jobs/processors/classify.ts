@@ -3,14 +3,18 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { runClassificationPipeline } from '@/lib/engine/pipeline';
 import { acquireStoreMutex } from '@/lib/ingestion/mutex';
-import type { ClassifyJobData } from '../queue';
+import { classifyQueue, type ClassifyJobData } from '../queue';
 
 export async function classifyProcessor(job: Job<ClassifyJobData>): Promise<void> {
   const { storeId } = job.data;
-  const mutex = await acquireStoreMutex(storeId, 30 * 60);
+  const mutex = await acquireStoreMutex(storeId, 30 * 60, 'classify');
   if (!mutex) {
     logger.info({ storeId, jobId: job.id }, 'Store busy — re-enqueueing classify');
-    await job.moveToDelayed(Date.now() + 30_000, job.token);
+    await classifyQueue.add(
+      'classify:store',
+      { storeId, origin: job.data.origin },
+      { jobId: `retry-classify-${storeId}-${Date.now()}`, delay: 3_000 },
+    );
     return;
   }
   try {

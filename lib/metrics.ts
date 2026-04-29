@@ -4,7 +4,7 @@ import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom
 // the Node runtime; dev HMR can double-register, which prom-client tolerates
 // via the `register.registerMetric` guard (we catch the throw).
 export const registry = new Registry();
-registry.setDefaultLabels({ app: 'search-failure-miner' });
+registry.setDefaultLabels({ app: 'lostsearch' });
 collectDefaultMetrics({ register: registry });
 
 function safeRegister<T>(factory: () => T): T {

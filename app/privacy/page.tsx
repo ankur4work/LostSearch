@@ -2,7 +2,7 @@ import ReactMarkdown from 'react-markdown';
 import { env } from '@/lib/env';
 
 export const metadata = {
-  title: 'Privacy Policy · Search Failure Miner',
+  title: 'Privacy Policy · LostSearch',
   description: 'What we collect, why we collect it, and how long we keep it.',
   robots: { index: true, follow: true },
 };
@@ -12,7 +12,7 @@ const PRIVACY_MD = `
 
 _Last updated: 22 April 2026_
 
-Search Failure Miner (the "Service") is a Shopify app that analyses search
+LostSearch (the "Service") is a Shopify app that analyses search
 queries shoppers type into your storefront and shows you the product gaps +
 revenue those queries represent. This policy explains what we collect, why,
 and for how long.

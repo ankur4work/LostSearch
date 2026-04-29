@@ -17,17 +17,22 @@ export interface MutexHandle {
 }
 
 /**
- * Per-store single-writer lock.
+ * Per-store, per-job-type single-writer lock.
  *
  * Caller holds the lock for `ttlSeconds`; if the caller crashes, the key expires
  * so we don't deadlock a store forever. `acquire()` returns `null` when the
  * lock is already held.
+ *
+ * Scope: pass `scope` (e.g. "products", "orders", "search") so different
+ * ingestion job types can run in parallel for the same store. Default scope
+ * "all" preserves the legacy single-writer behavior for callers that need it.
  */
 export async function acquireStoreMutex(
   storeId: string,
   ttlSeconds = 600,
+  scope: string = 'all',
 ): Promise<MutexHandle | null> {
-  const key = `mutex:store:${storeId}`;
+  const key = `mutex:store:${storeId}:${scope}`;
   const token = randomUUID();
   const ok = await redis.set(key, token, 'EX', ttlSeconds, 'NX');
   if (ok !== 'OK') return null;

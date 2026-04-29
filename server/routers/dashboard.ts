@@ -8,6 +8,15 @@ import { env } from '@/lib/env';
 
 const TypeFilterSchema = z.enum(['ALL', 'TYPE_1', 'TYPE_2', 'TYPE_3', 'TYPE_4']);
 
+function latestDate(dates: Array<Date | null | undefined>): Date | null {
+  let latest: Date | null = null;
+  for (const d of dates) {
+    if (!d) continue;
+    if (!latest || d.getTime() > latest.getTime()) latest = d;
+  }
+  return latest;
+}
+
 export const dashboardRouter = router({
   summary: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.storeId) return emptySummary();
@@ -154,6 +163,8 @@ async function computeSummary(
         aovCents: true,
         insufficientAov: true,
         lastSearchSync: true,
+        lastProductSync: true,
+        lastOrderSync: true,
         firstDashboardViewAt: true,
       },
     }),
@@ -202,7 +213,11 @@ async function computeSummary(
     category: store?.category ?? 'DEFAULT',
     aovCents: store?.aovCents ?? null,
     insufficientAov: store?.insufficientAov ?? false,
-    lastSyncedAt: store?.lastSearchSync ?? null,
+    lastSyncedAt: latestDate([
+      store?.lastSearchSync,
+      store?.lastProductSync,
+      store?.lastOrderSync,
+    ]),
     firstDashboardViewAt: store?.firstDashboardViewAt ?? null,
     revenueImpactCents: agg._sum.estimateCents ?? 0,
     bandLowCents: agg._sum.bandLowCents ?? 0,

@@ -1,6 +1,7 @@
 import type { ClassificationType } from '@prisma/client';
 import { engineConfig } from './config';
-import { benchmarkFor } from './benchmarks';
+import { benchmarkFor, defaultAovFor } from './benchmarks';
+import { logger } from '../logger';
 
 export interface RevenueInput {
   classificationType: ClassificationType | 'NONE';
@@ -17,7 +18,13 @@ export interface RevenueEstimate {
   bandLowCents: number;
   bandHighCents: number;
   category: string;
-  note?: 'missing_aov' | 'not_classified';
+  /**
+   * - 'estimated_aov' — the store has no orders yet, used the category-typical
+   *   AOV. Surfacing this lets the UI show "estimated" badging until real AOV
+   *   data is available.
+   * - 'not_classified' — query was healthy, no gap.
+   */
+  note?: 'estimated_aov' | 'not_classified';
 }
 
 /**
@@ -39,17 +46,34 @@ export function estimateRevenue(input: RevenueInput): RevenueEstimate {
   if (input.classificationType === 'NONE') {
     return zero(pct, category, 'not_classified');
   }
-  if (input.aovCents == null) {
-    return zero(pct, category, 'missing_aov');
-  }
   if (input.monthlyVolume <= 0) {
     return zero(pct, category);
+  }
+
+  // Fall back to a category-typical AOV when the store has no orders yet so
+  // dashboards on day-one show real magnitudes instead of $0. The note flag
+  // lets the UI badge these as estimates until real AOV data arrives.
+  let aovCents = input.aovCents;
+  let note: RevenueEstimate['note'];
+  if (aovCents == null) {
+    const fallback = defaultAovFor(input.storeCategory);
+    aovCents = fallback.aovCents;
+    note = 'estimated_aov';
+    logger.debug(
+      {
+        category: input.storeCategory,
+        fallbackAovCents: aovCents,
+        monthlyVolume: input.monthlyVolume,
+        benchmarkPct: pct,
+      },
+      'revenue.estimate using fallback AOV',
+    );
   }
 
   // Integer-cents math: multiply volume × aovCents first (both integers) then
   // scale by benchmark percentage. Rounding at the end keeps numeric drift
   // below ±1 cent for the worked-example magnitudes.
-  const estimateCents = Math.round(input.monthlyVolume * input.aovCents * pct);
+  const estimateCents = Math.round(input.monthlyVolume * aovCents * pct);
 
   const bandPct = engineConfig.revenueBandPct;
   const bandLowCents = Math.round(estimateCents * (1 - bandPct));
@@ -57,12 +81,13 @@ export function estimateRevenue(input: RevenueInput): RevenueEstimate {
 
   return {
     monthlyVolume: input.monthlyVolume,
-    aovCents: input.aovCents,
+    aovCents,
     benchmarkPct: pct,
     estimateCents,
     bandLowCents,
     bandHighCents,
     category,
+    ...(note ? { note } : {}),
   };
 }
 

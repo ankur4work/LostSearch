@@ -34,7 +34,7 @@ const EnvSchema = z.object({
   SMTP_PASS: z.string().optional(),
   FROM_EMAIL: z.string().email().default('no-reply@searchfailureminer.app'),
   SUPPORT_EMAIL: z.string().email().default('support@searchfailureminer.app'),
-  COMPANY_ADDRESS: z.string().default('Search Failure Miner · Bangalore, India'),
+  COMPANY_ADDRESS: z.string().default('LostSearch · Bangalore, India'),
 
   // Analytics (optional self-hosted PostHog).
   POSTHOG_KEY: z.string().optional(),
@@ -42,7 +42,7 @@ const EnvSchema = z.object({
 
   // Billing
   BILLING_TEST_MODE: z.coerce.boolean().default(false),
-  GROWTH_PLAN_PRICE_USD: z.coerce.number().positive().default(15),
+  GROWTH_PLAN_PRICE_USD: z.coerce.number().positive().default(9),
   GROWTH_PLAN_TRIAL_DAYS: z.coerce.number().int().positive().default(14),
 
   // Observability & ops (optional at boot so dev works out of the box).
@@ -93,7 +93,7 @@ const BUILD_STUB: Env = {
   COMPANY_ADDRESS: 'build stub',
   POSTHOG_HOST: 'https://app.posthog.com',
   BILLING_TEST_MODE: false,
-  GROWTH_PLAN_PRICE_USD: 15,
+  GROWTH_PLAN_PRICE_USD: 9,
   GROWTH_PLAN_TRIAL_DAYS: 14,
   SENTRY_TRACES_SAMPLE_RATE: 0.1,
   ADMIN_EMAILS: '',

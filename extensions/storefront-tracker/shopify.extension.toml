@@ -1,0 +1,7 @@
+api_version = "2024-07"
+uid = "fb3bfe9f-78f9-4c87-621a-1635a05a5eb19c5e24ee"
+
+[[extensions]]
+type = "theme"
+name = "LostSearch Storefront Tracker"
+handle = "storefront-tracker"

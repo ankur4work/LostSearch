@@ -91,6 +91,12 @@ export const synonymsRouter = router({
       const synonyms = Array.from(new Set([input.query.trim(), product.title.trim()])).filter(Boolean);
 
       const resp = await client.graphql<ApplyResp>(APPLY_MUTATION, { input: { synonyms } });
+      if (resp.errors && resp.errors.length > 0) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Shopify error: ${resp.errors.map((e) => e.message).join('; ')}`,
+        });
+      }
       const userErrors = resp.data?.searchSynonymGroupCreate.userErrors ?? [];
       if (userErrors.length > 0) {
         throw new TRPCError({

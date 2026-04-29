@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
-import { env } from '@/lib/env';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-// Static content — let edge cache hold it. Not `force-dynamic`.
-export const dynamic = 'force-static';
+// Origin-aware: ENDPOINT is derived from the incoming request host so the
+// tracker POSTs back to whichever URL served it (tunnel in dev, real domain
+// in prod). Cannot be force-static since the host changes.
+export const dynamic = 'force-dynamic';
 
 /**
  * Storefront tracker script — served at /tracker.js, injected into every
@@ -20,21 +21,24 @@ export const dynamic = 'force-static';
  *     falls back to fetch with keepalive.
  *   - Never captures PII beyond the query string the shopper typed.
  */
-const TRACKER_JS = `(function(){
-  var ENDPOINT = ${JSON.stringify(env.SHOPIFY_APP_URL + '/api/events/search')};
+function buildTracker(endpoint: string): string {
+  return `(function(){
+  var ENDPOINT = ${JSON.stringify(endpoint)};
   var shop = (window.Shopify && window.Shopify.shop) || null;
   if (!shop) return;
 
   function send(payload) {
     try {
       var body = JSON.stringify(Object.assign({ shop: shop, at: Date.now() }, payload));
+      // Use text/plain so the request is a "simple" CORS request (no preflight).
+      // The server reads body as JSON regardless of declared content-type.
       if (navigator.sendBeacon) {
-        var blob = new Blob([body], { type: 'application/json' });
+        var blob = new Blob([body], { type: 'text/plain' });
         navigator.sendBeacon(ENDPOINT, blob);
       } else {
         fetch(ENDPOINT, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'text/plain' },
           body: body,
           keepalive: true,
           credentials: 'omit',
@@ -109,13 +113,23 @@ const TRACKER_JS = `(function(){
   if (window.location.pathname.indexOf('/search') === 0) onSearchPage();
   hookForms();
 })();`;
+}
 
-export function GET(): NextResponse {
-  return new NextResponse(TRACKER_JS, {
+export function GET(req: NextRequest): NextResponse {
+  // Resolve the canonical origin from the incoming request so the tracker
+  // POSTs back to the same host (tunnel URL in dev, prod domain in prod).
+  const fwdHost = req.headers.get('x-forwarded-host');
+  const fwdProto = req.headers.get('x-forwarded-proto');
+  const url = new URL(req.url);
+  const host = fwdHost ?? req.headers.get('host') ?? url.host;
+  const proto = fwdProto ?? url.protocol.replace(':', '') ?? 'https';
+  const endpoint = `${proto}://${host}/api/events/search`;
+
+  return new NextResponse(buildTracker(endpoint), {
     status: 200,
     headers: {
       'content-type': 'application/javascript; charset=utf-8',
-      'cache-control': 'public, max-age=3600',
+      'cache-control': 'public, max-age=300',
       // CORS: storefronts at arbitrary *.myshopify.com origins fetch this.
       'access-control-allow-origin': '*',
     },

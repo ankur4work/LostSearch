@@ -1,0 +1,48 @@
+{%- comment -%}
+  LostSearch Storefront Tracker — app embed block.
+
+  Once a merchant installs LostSearch and enables this embed in their theme
+  editor (Theme → App embeds → toggle "LostSearch Storefront Tracker"), the
+  script below loads on every page and captures every storefront search:
+  what shoppers typed, how many results came back, whether they clicked.
+
+  No PII is captured — only the query string, result count, and a timestamp.
+  See https://lostsearch.solnix.store/methodology for full details.
+{%- endcomment -%}
+
+{% if block.settings.enabled %}
+  {%- assign _host = block.settings.app_host
+    | replace: 'https://', ''
+    | replace: 'http://', ''
+    | replace: '/', ''
+    | strip
+  -%}
+  <script
+    src="https://{{ _host }}/tracker.js"
+    defer
+    data-lostsearch="storefront-tracker"
+  ></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "LostSearch Tracker",
+  "target": "head",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable storefront search tracking",
+      "default": true,
+      "info": "Captures shopper search queries to surface revenue gaps. Required for LostSearch to work."
+    },
+    {
+      "type": "text",
+      "id": "app_host",
+      "label": "LostSearch host",
+      "default": "lostsearch.solnix.store",
+      "info": "Leave as default unless support advises otherwise."
+    }
+  ]
+}
+{% endschema %}

@@ -27,7 +27,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   authUrl.searchParams.set('scope', env.SHOPIFY_SCOPES);
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('state', state);
-  authUrl.searchParams.set('grant_options[]', '');
 
   logger.info({ shop }, 'OAuth init redirecting to Shopify authorize');
   return NextResponse.redirect(authUrl.toString(), 302);

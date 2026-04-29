@@ -1,0 +1,6 @@
+name = "lostsearch-web"
+roles = ["frontend", "backend"]
+webhooks_path = "/webhooks"
+
+[commands]
+dev = "pnpm dev"

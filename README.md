@@ -17,14 +17,9 @@ A Shopify App Store product that turns failed-search signals into revenue: ident
 
 - Node 20+, pnpm 9+
 - Docker (for Postgres/Redis)
-- A Shopify Partner account with an app created. Set the app's **Allowed redirection URL** to `${SHOPIFY_APP_URL}/api/auth/callback`.
-- An HTTPS tunnel to `localhost:3000` (Shopify requires it). ngrok or cloudflared work:
-  ```
-  ngrok http 3000
-  # or
-  cloudflared tunnel --url http://localhost:3000
-  ```
-  Copy the public URL into `SHOPIFY_APP_URL`.
+- A Shopify Partner account with an app created.
+- For embedded local dev, prefer Shopify CLI with the local config in `shopify.app.local.toml`. It already points at `https://localhost:3000` and lets Shopify update app URLs during dev.
+- If you are not using Shopify CLI dev, set the app's **Allowed redirection URL** to `${SHOPIFY_APP_URL}/api/auth/callback` and ensure all app/webhook URLs point at the same host.
 
 ## Setup
 
@@ -42,7 +37,18 @@ pnpm dev                    # Next.js on :3000
 pnpm worker                 # (optional) BullMQ workers in a second terminal
 ```
 
+If you use Shopify CLI local dev, run the app against `shopify.app.local.toml` so Shopify keeps the embedded app URLs aligned with `https://localhost:3000`.
+
 Install the app by visiting `${SHOPIFY_APP_URL}/api/auth?shop=<your-dev-store>.myshopify.com`. Shopify will prompt for scope approval, redirect back through `/api/auth/callback`, register the mandatory GDPR webhooks, and drop you into the embedded dashboard.
+
+For onboarding to complete locally, run both the web app and the worker:
+
+```bash
+pnpm dev
+pnpm worker
+```
+
+Without the worker, onboarding will stay partially complete because the ingestion jobs remain queued.
 
 ## Scripts
 

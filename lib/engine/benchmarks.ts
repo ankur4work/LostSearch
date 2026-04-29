@@ -8,7 +8,9 @@ const BenchmarksSchema = z.object({
   updatedAt: z.string(),
   source: z.string().optional(),
   default: z.number().min(0).max(1),
+  defaultAovCents: z.number().int().positive().default(6000),
   categories: z.record(z.string(), z.number().min(0).max(1)),
+  categoryAovCents: z.record(z.string(), z.number().int().positive()).optional().default({}),
   aliases: z.record(z.string(), z.string()).optional().default({}),
 });
 
@@ -67,4 +69,31 @@ export function benchmarkFor(category: string | null | undefined): {
     'Benchmark missing for category — falling back to DEFAULT',
   );
   return { pct: b.default, category: 'DEFAULT', source: 'default' };
+}
+
+/**
+ * Category-typical AOV used as a fallback when the store has no orders yet
+ * (or fewer than the minimum sample). Always returns a positive number so
+ * revenue estimates surface real magnitudes during onboarding instead of $0.
+ */
+export function defaultAovFor(category: string | null | undefined): {
+  aovCents: number;
+  category: string;
+  source: 'exact' | 'alias' | 'default';
+} {
+  const b = cache;
+  const fallback = b.defaultAovCents;
+  if (!category) return { aovCents: fallback, category: 'DEFAULT', source: 'default' };
+  const key = category.toUpperCase().trim();
+  const direct = b.categoryAovCents[key];
+  if (direct !== undefined) return { aovCents: direct, category: key, source: 'exact' };
+  const aliasTarget = b.aliases[key];
+  if (aliasTarget && b.categoryAovCents[aliasTarget] !== undefined) {
+    return {
+      aovCents: b.categoryAovCents[aliasTarget] as number,
+      category: aliasTarget,
+      source: 'alias',
+    };
+  }
+  return { aovCents: fallback, category: 'DEFAULT', source: 'default' };
 }

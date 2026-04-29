@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/prisma';
 import { verifyOAuthHmac } from '@/lib/shopify/hmac';
 import { OAuthCallbackSchema, isValidShopDomain } from '@/lib/shopify/validators';
-import { upsertStoreWithToken } from '@/lib/shopify/store';
-import { MANDATORY_WEBHOOKS } from '@/lib/shopify/client';
+import { upsertStoreWithToken, refreshStoreToken } from '@/lib/shopify/store';
+import { exchangeOfflineAccessToken } from '@/lib/shopify/token-exchange';
+import { extractBearerToken, verifySessionToken } from '@/lib/shopify/session';
 // jobs/schedule imported dynamically — the transitive BullMQ Queue init
 // was tripping Next's build-time route analysis with Redis connect attempts.
 import { track } from '@/lib/analytics';
@@ -19,9 +21,19 @@ interface TokenResponse {
   scope: string;
 }
 
+interface OfflineBootstrapResponse {
+  ok: true;
+  shop: string;
+  storeId: string;
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const rl = await publicRateLimit(req, 'oauth-callback');
   if (!rl.ok) return rl.response;
+
+  if (req.nextUrl.searchParams.get('embedded') === '1') {
+    return handleEmbeddedBootstrap(req);
+  }
 
   const raw = Object.fromEntries(req.nextUrl.searchParams.entries());
   const parsed = OAuthCallbackSchema.safeParse(raw);
@@ -67,8 +79,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     scope: tokenJson.scope,
   });
 
-  await registerMandatoryWebhooks(shop, tokenJson.access_token);
-  await registerStorefrontTracker(shop, tokenJson.access_token);
+  // Webhooks are declared in shopify.app.toml [[webhooks.subscriptions]] and
+  // auto-registered by Shopify. Storefront tracker is delivered via theme app
+  // extension instead of REST ScriptTag (which is deprecated for new tokens).
   const { enqueueInstallBackfill } = await import('@/jobs/schedule');
   await enqueueInstallBackfill(store.id);
   track({
@@ -87,57 +100,48 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.redirect(appUrl.toString(), 302);
 }
 
-/**
- * Inject our storefront tracker via Shopify ScriptTag API. The tracker
- * captures `search_submitted` + `search_viewed` events and POSTs them to
- * /api/events/search on our backend — this is how we collect search
- * analytics WITHOUT requiring the merchant to install Shopify's Search &
- * Discovery app.
- *
- * Idempotent: Shopify rejects duplicate `src` with a 422 which we swallow.
- */
-async function registerStorefrontTracker(shop: string, accessToken: string): Promise<void> {
-  const body = {
-    script_tag: {
-      event: 'onload',
-      src: `${env.SHOPIFY_APP_URL}/tracker.js`,
-      display_scope: 'online_store',
-    },
-  };
-  const resp = await fetch(`https://${shop}/admin/api/2024-10/script_tags.json`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'X-Shopify-Access-Token': accessToken,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok && resp.status !== 422) {
-    logger.warn({ shop, status: resp.status }, 'Storefront tracker ScriptTag registration failed');
-  } else {
-    logger.info({ shop }, 'Storefront tracker registered on install');
+async function handleEmbeddedBootstrap(req: NextRequest): Promise<NextResponse> {
+  const token = extractBearerToken(req.headers.get('authorization'));
+  if (!token) {
+    return NextResponse.json({ error: 'session token required' }, { status: 401 });
   }
-}
 
-async function registerMandatoryWebhooks(shop: string, accessToken: string): Promise<void> {
-  for (const wh of MANDATORY_WEBHOOKS) {
-    const body = {
-      webhook: {
-        topic: wh.topic,
-        address: `${env.SHOPIFY_APP_URL}${wh.path}`,
-        format: 'json',
-      },
-    };
-    const resp = await fetch(`https://${shop}/admin/api/2024-10/webhooks.json`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'X-Shopify-Access-Token': accessToken,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok && resp.status !== 422) {
-      logger.warn({ shop, topic: wh.topic, status: resp.status }, 'Webhook registration failed');
-    }
+  let claims;
+  try {
+    claims = await verifySessionToken(token);
+  } catch (err) {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, 'Embedded bootstrap rejected');
+    return NextResponse.json({ error: 'invalid session token' }, { status: 401 });
   }
+
+  const exchanged = await exchangeOfflineAccessToken({
+    shop: claims.shop,
+    sessionToken: token,
+  });
+
+  const existing = await prisma.store.findUnique({
+    where: { shopDomain: claims.shop },
+    select: { id: true },
+  });
+
+  const store = existing
+    ? await refreshStoreToken({
+        shopDomain: claims.shop,
+        accessToken: exchanged.accessToken,
+        scope: exchanged.scope,
+      })
+    : await upsertStoreWithToken({
+        shopDomain: claims.shop,
+        accessToken: exchanged.accessToken,
+        scope: exchanged.scope,
+      });
+
+  // Webhooks now configured in shopify.app.toml — Shopify auto-registers them.
+  // No more REST ScriptTag — use a theme app extension if storefront tracking
+  // is needed in production.
+  const { enqueueInstallBackfill } = await import('@/jobs/schedule');
+  await enqueueInstallBackfill(store.id);
+
+  logger.info({ shop: claims.shop, storeId: store.id }, 'Embedded bootstrap complete');
+  return NextResponse.json({ ok: true, shop: claims.shop, storeId: store.id } satisfies OfflineBootstrapResponse);
 }

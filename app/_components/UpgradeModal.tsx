@@ -16,9 +16,15 @@ export function UpgradeModal({ open, onClose, storeId }: Props): JSX.Element {
   const handleUpgrade = async (): Promise<void> => {
     analytics.track('upgrade_cta_clicked', { storeId });
     const res = await createCharge.mutateAsync({ plan: 'GROWTH' });
-    // Top-level redirect out of the embed to Shopify's confirmation screen.
+    // Use App Bridge to escape the embedded iframe — direct window.top.location
+    // is blocked cross-origin in admin.shopify.com.
     if (typeof window !== 'undefined') {
-      window.top?.location.assign(res.confirmationUrl);
+      const shopify = (window as unknown as { shopify?: { redirectTo?: (url: string, opts?: { target?: string }) => void } }).shopify;
+      if (shopify?.redirectTo) {
+        shopify.redirectTo(res.confirmationUrl, { target: 'top' });
+      } else {
+        window.open(res.confirmationUrl, '_top');
+      }
     }
   };
 
@@ -38,7 +44,7 @@ export function UpgradeModal({ open, onClose, storeId }: Props): JSX.Element {
         <BlockStack gap="400">
           <InlineStack gap="200" blockAlign="center">
             <Text as="p" variant="heading2xl">
-              $15
+              ${process.env.NEXT_PUBLIC_GROWTH_PLAN_PRICE_USD ?? '9'}
             </Text>
             <Text as="p" tone="subdued" variant="bodyMd">
               /month

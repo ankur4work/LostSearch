@@ -8,27 +8,29 @@ import {
 } from './queue';
 
 /**
- * Install-time: enqueue one-off immediate backfill jobs (30d search, 90d orders,
- * full product sync). The per-store mutex serializes them.
+ * Enqueue one-off backfill jobs (30d search, 90d orders, full product sync).
+ * Used at install time AND for on-demand "Sync now" clicks. Each call uses a
+ * unique jobId (timestamped) so BullMQ doesn't dedupe a re-sync.
  */
 export async function enqueueInstallBackfill(storeId: string): Promise<void> {
   const common = { origin: 'install' as const };
+  const ts = Date.now();
   await ingestionQueue.add(
     'ingest:products' satisfies IngestionJobName,
     { storeId, force: true, ...common } satisfies IngestionJobData,
-    { jobId: `install:${storeId}:products` },
+    { jobId: `sync-${storeId}-products-${ts}` },
   );
   await ingestionQueue.add(
     'ingest:orders' satisfies IngestionJobName,
     { storeId, sinceDays: 90, ...common } satisfies IngestionJobData,
-    { jobId: `install:${storeId}:orders` },
+    { jobId: `sync-${storeId}-orders-${ts}` },
   );
   await ingestionQueue.add(
     'ingest:search' satisfies IngestionJobName,
     { storeId, sinceDays: 30, ...common } satisfies IngestionJobData,
-    { jobId: `install:${storeId}:search` },
+    { jobId: `sync-${storeId}-search-${ts}` },
   );
-  logger.info({ storeId }, 'Install backfill enqueued');
+  logger.info({ storeId, ts }, 'Backfill jobs enqueued');
 }
 
 /**
@@ -52,19 +54,19 @@ export async function seedCronJobs(): Promise<void> {
     await ingestionQueue.add(
       'ingest:search',
       { storeId, sinceDays: 1, origin: cron },
-      { repeat: { pattern: '0 2 * * *' }, jobId: `cron:${storeId}:search` },
+      { repeat: { pattern: '0 2 * * *' }, jobId: `cron-${storeId}-search` },
     );
     await ingestionQueue.add(
       'ingest:orders',
       { storeId, sinceDays: 90, origin: cron },
-      { repeat: { pattern: '0 3 * * *' }, jobId: `cron:${storeId}:orders` },
+      { repeat: { pattern: '0 3 * * *' }, jobId: `cron-${storeId}-orders` },
     );
     // Products: stagger every N minutes across the hour to smooth load.
     const staggerMin = i % 60;
     await ingestionQueue.add(
       'ingest:products',
       { storeId, origin: cron },
-      { repeat: { pattern: `${staggerMin} 4 * * *` }, jobId: `cron:${storeId}:products` },
+      { repeat: { pattern: `${staggerMin} 4 * * *` }, jobId: `cron-${storeId}-products` },
     );
   }
   // Weekly digest: BullMQ `repeat.pattern` with `tz` fires cron in the store's
@@ -81,7 +83,7 @@ export async function seedCronJobs(): Promise<void> {
       { storeId: s.id, timezone: tz },
       {
         repeat: { pattern: '0 9 * * 1', tz },
-        jobId: `cron:${s.id}:digest`,
+        jobId: `cron-${s.id}-digest`,
       },
     );
   }

@@ -9,10 +9,12 @@ import {
   InlineStack,
   Badge,
   Banner,
+  SkeletonBodyText,
 } from '@shopify/polaris';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { trpc } from '@/lib/trpc/client';
+import { useTrpcAuth } from '@/lib/trpc/provider';
 
 const LABELS: Record<string, string> = {
   INGEST_PRODUCTS: 'Syncing product catalog',
@@ -29,7 +31,9 @@ const TONE: Record<string, 'info' | 'success' | 'critical' | 'attention'> = {
 
 export default function OnboardingPage(): JSX.Element {
   const router = useRouter();
+  const auth = useTrpcAuth();
   const status = trpc.onboarding.status.useQuery(undefined, {
+    enabled: auth.ready,
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
   });
@@ -39,6 +43,16 @@ export default function OnboardingPage(): JSX.Element {
       router.replace('/');
     }
   }, [status.data?.ready, router]);
+
+  if (!auth.ready || status.isLoading) {
+    return (
+      <Page title="Setting up your store" subtitle="This usually takes a minute or two.">
+        <Card>
+          <SkeletonBodyText lines={5} />
+        </Card>
+      </Page>
+    );
+  }
 
   const hasFailure = status.data?.jobs.some((j) => j.status === 'FAILED') ?? false;
 

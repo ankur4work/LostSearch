@@ -1,0 +1,41 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "415a0bc1675f01ec144b4eb01db740ac"
+name = "LostSearch"
+application_url = "https://lostsearch.solnix.store"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "test-1-l5etzbta.myshopify.com"
+
+[webhooks]
+api_version = "2024-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/api/webhooks/app-uninstalled"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request" ]
+  uri = "/api/webhooks/customers-data-request"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/redact" ]
+  uri = "/api/webhooks/customers-redact"
+
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "shop/redact" ]
+  uri = "/api/webhooks/shop-redact"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,read_orders,read_products,read_content,read_themes,write_script_tags,write_search_synonyms"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://lostsearch.solnix.store/api/auth/callback" ]
+
+[pos]
+embedded = false

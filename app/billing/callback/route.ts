@@ -48,8 +48,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const resp = await client.graphql<AppSubResp>(APP_SUBSCRIPTION_QUERY, { id: subscriptionGid });
   const sub = resp.data?.node;
 
+  // Return the merchant to the embedded app inside Shopify admin instead of
+  // back to our raw application_url (which in dev is localhost on a port the
+  // browser can't reach).
+  const shopHandle = parsedShop.data.replace(/\.myshopify\.com$/, '');
   const returnToApp = () =>
-    NextResponse.redirect(`${env.SHOPIFY_APP_URL}/?shop=${encodeURIComponent(parsedShop.data)}`, 302);
+    NextResponse.redirect(
+      `https://admin.shopify.com/store/${encodeURIComponent(shopHandle)}/apps/${encodeURIComponent(env.SHOPIFY_API_KEY)}`,
+      302,
+    );
 
   if (!sub || sub.__typename !== 'AppSubscription') {
     logger.warn({ shop: parsedShop.data, subscriptionGid }, 'billing callback: subscription not found');

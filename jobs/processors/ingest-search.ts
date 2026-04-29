@@ -4,14 +4,18 @@ import { logger } from '@/lib/logger';
 import { ingestSearchAnalytics } from '@/lib/ingestion/search-analytics';
 import { acquireStoreMutex } from '@/lib/ingestion/mutex';
 import { startRun, finishRun } from '@/lib/ingestion/runs';
-import { classifyQueue, type IngestionJobData } from '../queue';
+import { classifyQueue, ingestionQueue, type IngestionJobData } from '../queue';
 
 export async function ingestSearchProcessor(job: Job<IngestionJobData>): Promise<void> {
   const { storeId, sinceDays = 1 } = job.data;
-  const mutex = await acquireStoreMutex(storeId);
+  const mutex = await acquireStoreMutex(storeId, 600, 'search');
   if (!mutex) {
     logger.info({ storeId, jobId: job.id }, 'Store locked — re-enqueueing search sync');
-    await job.moveToDelayed(Date.now() + 30_000, job.token);
+    await ingestionQueue.add(
+      'ingest:search',
+      { storeId, sinceDays, origin: job.data.origin },
+      { jobId: `retry-${storeId}-search-${Date.now()}`, delay: 3_000 },
+    );
     return;
   }
   const store = await prisma.store.findUnique({ where: { id: storeId } });
@@ -34,7 +38,7 @@ export async function ingestSearchProcessor(job: Job<IngestionJobData>): Promise
     await classifyQueue.add(
       'classify:store',
       { storeId, origin: 'post-ingest' },
-      { jobId: `classify:${storeId}:${Date.now()}` },
+      { jobId: `classify-${storeId}-${Date.now()}` },
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
