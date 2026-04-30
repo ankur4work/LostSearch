@@ -142,7 +142,7 @@ export const dashboardRouter = router({
   trackerStatus: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session?.storeId) return { enabled: null as boolean | null };
     const storeId = ctx.session.storeId;
-    const cacheKey = `dash:tracker-status:v3:${storeId}`;
+    const cacheKey = `dash:tracker-status:v4:${storeId}`;
     return getOrCompute(cacheKey, 300, async () => {
       try {
         const store = await ctx.prisma.store.findUnique({
@@ -186,10 +186,11 @@ export const dashboardRouter = router({
         const settings = JSON.parse(assetData.asset.value) as SettingsData;
 
         function isTrackerBlock(b: ThemeBlock): boolean {
-          return (
-            b.type.includes('storefront-tracker') ||
-            b.type.includes('fb3bfe9f-78f9-4c87-621a-1635a05a5eb19c5e24ee')
-          );
+          // Actual type in theme: shopify://apps/lostsearch/blocks/tracker/<uid>
+          // The TOML handle (storefront-tracker) and UID may differ from what
+          // Shopify stored when the extension was first published — match on
+          // the stable app identifier instead.
+          return b.type.startsWith('shopify://apps/lostsearch/');
         }
 
         // App embed blocks live at current.blocks in OS 2.0 themes.
@@ -201,13 +202,7 @@ export const dashboardRouter = router({
         const trackerBlock = [...topBlocks, ...sectionBlocks].find(isTrackerBlock);
 
         ctx.logger.info(
-          {
-            shop: store.shopDomain,
-            topBlockCount: topBlocks.length,
-            sectionBlockCount: sectionBlocks.length,
-            found: !!trackerBlock,
-            blockTypes: topBlocks.map((b) => b.type),
-          },
+          { shop: store.shopDomain, found: !!trackerBlock, enabled: trackerBlock ? trackerBlock.disabled !== true : false },
           'trackerStatus check',
         );
 
