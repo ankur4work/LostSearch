@@ -5,6 +5,8 @@ import { protectedProcedure, router, FREE_PLAN_VISIBLE_GAPS } from '../trpc';
 import { bucketForEstimate } from '@/lib/money';
 import { getOrCompute } from '@/lib/cache';
 import { env } from '@/lib/env';
+import { decrypt } from '@/lib/crypto';
+import { ADMIN_API_VERSION } from '@/lib/shopify/client';
 
 const TypeFilterSchema = z.enum(['ALL', 'TYPE_1', 'TYPE_2', 'TYPE_3', 'TYPE_4']);
 
@@ -136,6 +138,60 @@ export const dashboardRouter = router({
       });
       return rows.map((r) => ({ date: r.dateBucket, count: r.occurrenceCount }));
     }),
+
+  trackerStatus: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session?.storeId) return { enabled: null as boolean | null };
+    const storeId = ctx.session.storeId;
+    const cacheKey = `dash:tracker-status:v1:${storeId}`;
+    return getOrCompute(cacheKey, 300, async () => {
+      try {
+        const store = await ctx.prisma.store.findUnique({
+          where: { id: storeId },
+          select: { shopDomain: true, accessToken: true },
+        });
+        if (!store) return { enabled: null as boolean | null };
+        const token = decrypt(store.accessToken);
+        const headers = {
+          'X-Shopify-Access-Token': token,
+          'Content-Type': 'application/json',
+        };
+
+        const themesRes = await fetch(
+          `https://${store.shopDomain}/admin/api/${ADMIN_API_VERSION}/themes.json?role=main`,
+          { headers },
+        );
+        if (!themesRes.ok) return { enabled: null as boolean | null };
+
+        const themesData = (await themesRes.json()) as {
+          themes: Array<{ id: number; role: string }>;
+        };
+        const mainTheme = themesData.themes.find((t) => t.role === 'main');
+        if (!mainTheme) return { enabled: null as boolean | null };
+
+        const assetRes = await fetch(
+          `https://${store.shopDomain}/admin/api/${ADMIN_API_VERSION}/themes/${mainTheme.id}/assets.json?asset[key]=config/settings_data.json`,
+          { headers },
+        );
+        if (!assetRes.ok) return { enabled: null as boolean | null };
+
+        const assetData = (await assetRes.json()) as { asset: { value: string } };
+        const settings = JSON.parse(assetData.asset.value) as {
+          current?: { blocks?: Record<string, { type: string; disabled?: boolean }> };
+        };
+
+        const blocks = Object.values(settings.current?.blocks ?? {});
+        const trackerBlock = blocks.find(
+          (b) =>
+            b.type.includes('storefront-tracker') ||
+            b.type.includes('fb3bfe9f-78f9-4c87-621a-1635a05a5eb19c5e24ee'),
+        );
+        if (!trackerBlock) return { enabled: false };
+        return { enabled: trackerBlock.disabled !== true };
+      } catch {
+        return { enabled: null as boolean | null };
+      }
+    });
+  }),
 
   markDashboardViewed: protectedProcedure.mutation(async ({ ctx }) => {
     if (!ctx.session.storeId) return { isFirstView: false };

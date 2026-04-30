@@ -12,6 +12,11 @@ export default function HomePage(): JSX.Element {
   const auth = useTrpcAuth();
   const planQ = trpc.billing.currentPlan.useQuery(undefined, { enabled: auth.ready });
   const summaryQ = trpc.dashboard.summary.useQuery(undefined, { enabled: auth.ready });
+  const trackerQ = trpc.dashboard.trackerStatus.useQuery(undefined, {
+    enabled: auth.ready,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const plan = planQ.data?.plan ?? 'FREE';
   const storeName = summaryQ.data?.storeName ?? '';
@@ -201,7 +206,8 @@ export default function HomePage(): JSX.Element {
 
         {/* TRACKER SETUP — shown until first search arrives */}
         {summaryQ.data &&
-          (summaryQ.data.totalMonthlySearches ?? 0) === 0 && (
+          (summaryQ.data.totalMonthlySearches ?? 0) === 0 &&
+          trackerQ.data?.enabled !== true && (
             <TrackerSetupBanner shopDomain={summaryQ.data.shopDomain} />
           )}
 

@@ -31,6 +31,11 @@ export default function DashboardPage(): JSX.Element {
     refetchOnWindowFocus: false,
     refetchInterval: () => (onboarding.data?.ready === false ? 3000 : false),
   });
+  const trackerQ = trpc.dashboard.trackerStatus.useQuery(undefined, {
+    enabled: auth.ready,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const openUpgrade = (): void => {
@@ -91,7 +96,9 @@ export default function DashboardPage(): JSX.Element {
           onUpgrade={openUpgrade}
         />
 
-        {ingestionReady && totalQueries === 0 && <TrackerSetupBanner shopDomain={s.shopDomain} />}
+        {ingestionReady && totalQueries === 0 && trackerQ.data?.enabled !== true && (
+          <TrackerSetupBanner shopDomain={s.shopDomain} />
+        )}
 
         {showInsufficient && <InsufficientDataEmpty />}
         {showNoGaps && <NoGapsFoundEmpty />}
