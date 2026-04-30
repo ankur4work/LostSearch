@@ -11,14 +11,8 @@
 {%- endcomment -%}
 
 {% if block.settings.enabled %}
-  {%- assign _host = block.settings.app_host
-    | replace: 'https://', ''
-    | replace: 'http://', ''
-    | replace: '/', ''
-    | strip
-  -%}
   <script
-    src="https://{{ _host }}/tracker.js"
+    src="https://lostsearch.solnix.store/tracker.js"
     defer
     data-lostsearch="storefront-tracker"
   ></script>
@@ -35,13 +29,6 @@
       "label": "Enable storefront search tracking",
       "default": true,
       "info": "Captures shopper search queries to surface revenue gaps. Required for LostSearch to work."
-    },
-    {
-      "type": "text",
-      "id": "app_host",
-      "label": "LostSearch host",
-      "default": "lostsearch.solnix.store",
-      "info": "Leave as default unless support advises otherwise."
     }
   ]
 }
