@@ -201,7 +201,13 @@ export const dashboardRouter = router({
         const trackerBlock = [...topBlocks, ...sectionBlocks].find(isTrackerBlock);
 
         ctx.logger.info(
-          { shop: store.shopDomain, topBlockCount: topBlocks.length, sectionBlockCount: sectionBlocks.length, found: !!trackerBlock },
+          {
+            shop: store.shopDomain,
+            topBlockCount: topBlocks.length,
+            sectionBlockCount: sectionBlocks.length,
+            found: !!trackerBlock,
+            blockTypes: topBlocks.map((b) => b.type),
+          },
           'trackerStatus check',
         );
 
