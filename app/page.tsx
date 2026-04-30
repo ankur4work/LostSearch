@@ -207,7 +207,7 @@ export default function HomePage(): JSX.Element {
         {/* TRACKER SETUP — shown until first search arrives */}
         {summaryQ.data &&
           (summaryQ.data.totalMonthlySearches ?? 0) === 0 &&
-          trackerQ.data?.enabled !== true && (
+          trackerQ.data?.enabled === false && (
             <TrackerSetupBanner shopDomain={summaryQ.data.shopDomain} />
           )}
 

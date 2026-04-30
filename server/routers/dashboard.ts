@@ -142,7 +142,7 @@ export const dashboardRouter = router({
   trackerStatus: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session?.storeId) return { enabled: null as boolean | null };
     const storeId = ctx.session.storeId;
-    const cacheKey = `dash:tracker-status:v1:${storeId}`;
+    const cacheKey = `dash:tracker-status:v2:${storeId}`;
     return getOrCompute(cacheKey, 300, async () => {
       try {
         const store = await ctx.prisma.store.findUnique({
@@ -175,16 +175,36 @@ export const dashboardRouter = router({
         if (!assetRes.ok) return { enabled: null as boolean | null };
 
         const assetData = (await assetRes.json()) as { asset: { value: string } };
-        const settings = JSON.parse(assetData.asset.value) as {
-          current?: { blocks?: Record<string, { type: string; disabled?: boolean }> };
-        };
 
-        const blocks = Object.values(settings.current?.blocks ?? {});
-        const trackerBlock = blocks.find(
-          (b) =>
+        type ThemeBlock = { type: string; disabled?: boolean; blocks?: Record<string, ThemeBlock> };
+        type SettingsData = {
+          current?: {
+            blocks?: Record<string, ThemeBlock>;
+            sections?: Record<string, { type?: string; disabled?: boolean; blocks?: Record<string, ThemeBlock> }>;
+          };
+        };
+        const settings = JSON.parse(assetData.asset.value) as SettingsData;
+
+        function isTrackerBlock(b: ThemeBlock): boolean {
+          return (
             b.type.includes('storefront-tracker') ||
-            b.type.includes('fb3bfe9f-78f9-4c87-621a-1635a05a5eb19c5e24ee'),
+            b.type.includes('fb3bfe9f-78f9-4c87-621a-1635a05a5eb19c5e24ee')
+          );
+        }
+
+        // App embed blocks live at current.blocks in OS 2.0 themes.
+        // Some themes store them nested inside sections — search both.
+        const topBlocks = Object.values(settings.current?.blocks ?? {});
+        const sectionBlocks = Object.values(settings.current?.sections ?? {}).flatMap(
+          (s) => Object.values(s.blocks ?? {}),
         );
+        const trackerBlock = [...topBlocks, ...sectionBlocks].find(isTrackerBlock);
+
+        ctx.logger.info(
+          { shop: store.shopDomain, topBlockCount: topBlocks.length, sectionBlockCount: sectionBlocks.length, found: !!trackerBlock },
+          'trackerStatus check',
+        );
+
         if (!trackerBlock) return { enabled: false };
         return { enabled: trackerBlock.disabled !== true };
       } catch {

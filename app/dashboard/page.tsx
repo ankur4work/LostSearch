@@ -96,7 +96,7 @@ export default function DashboardPage(): JSX.Element {
           onUpgrade={openUpgrade}
         />
 
-        {ingestionReady && totalQueries === 0 && trackerQ.data?.enabled !== true && (
+        {ingestionReady && totalQueries === 0 && trackerQ.data?.enabled === false && (
           <TrackerSetupBanner shopDomain={s.shopDomain} />
         )}
 
