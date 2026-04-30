@@ -142,7 +142,7 @@ export const dashboardRouter = router({
   trackerStatus: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session?.storeId) return { enabled: null as boolean | null };
     const storeId = ctx.session.storeId;
-    const cacheKey = `dash:tracker-status:v2:${storeId}`;
+    const cacheKey = `dash:tracker-status:v3:${storeId}`;
     return getOrCompute(cacheKey, 300, async () => {
       try {
         const store = await ctx.prisma.store.findUnique({
