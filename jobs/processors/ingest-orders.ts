@@ -41,9 +41,9 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
       await finishRun(run.id, 'DONE');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      await finishRun(run.id, 'FAILED', msg);
 
       if (err instanceof ShopifyAuthError) {
+        await finishRun(run.id, 'FAILED', msg);
         logger.warn(
           { storeId, shop: store.shopDomain },
           'ShopifyAuthError in orders processor — re-queuing after delay for token exchange',
@@ -59,6 +59,16 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
         return;
       }
 
+      // Shopify requires "Protected customer data" approval to read orders.
+      // Treat this as 0 orders rather than failing — AOV will be skipped but
+      // the rest of the pipeline (products, search) can still complete.
+      if (msg.includes('not approved to access the Order object')) {
+        logger.warn({ storeId, shop: store.shopDomain }, 'Orders access not approved — marking done with 0 orders');
+        await finishRun(run.id, 'DONE', msg);
+        return;
+      }
+
+      await finishRun(run.id, 'FAILED', msg);
       throw err;
     }
   } finally {
