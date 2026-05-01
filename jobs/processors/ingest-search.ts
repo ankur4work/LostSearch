@@ -24,6 +24,12 @@ export async function ingestSearchProcessor(job: Job<IngestionJobData>): Promise
     await mutex.release();
     return;
   }
+  const { isTokenExpired } = await import('@/lib/shopify/store');
+  if (isTokenExpired(store)) {
+    logger.warn({ storeId, shop: store.shopDomain }, 'Access token expired — skipping search sync until merchant reopens app');
+    await mutex.release();
+    return;
+  }
   const run = await startRun({
     storeId,
     jobType: 'INGEST_SEARCH',

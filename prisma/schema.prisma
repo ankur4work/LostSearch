@@ -42,7 +42,8 @@ enum IngestionJobType {
 model Store {
   id               String    @id @default(cuid())
   shopDomain       String    @unique @map("shop_domain")
-  accessToken      String    @map("access_token")
+  accessToken          String    @map("access_token")
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
   scope            String
   plan             Plan      @default(FREE)
   aovCents         Int?      @map("aov_cents")

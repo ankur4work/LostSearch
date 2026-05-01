@@ -129,11 +129,13 @@ async function handleEmbeddedBootstrap(req: NextRequest): Promise<NextResponse> 
         shopDomain: claims.shop,
         accessToken: exchanged.accessToken,
         scope: exchanged.scope,
+        expiresIn: exchanged.expiresIn,
       })
     : await upsertStoreWithToken({
         shopDomain: claims.shop,
         accessToken: exchanged.accessToken,
         scope: exchanged.scope,
+        expiresIn: exchanged.expiresIn,
       });
 
   // Webhooks now configured in shopify.app.toml — Shopify auto-registers them.

@@ -5,6 +5,7 @@ import { ingestOrders } from '@/lib/ingestion/orders';
 import { acquireStoreMutex } from '@/lib/ingestion/mutex';
 import { startRun, finishRun } from '@/lib/ingestion/runs';
 import { ShopifyAuthError } from '@/lib/shopify/client';
+import { isTokenExpired } from '@/lib/shopify/store';
 import type { IngestionJobData } from '../queue';
 import { ingestionQueue } from '../queue';
 
@@ -26,6 +27,11 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
   try {
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store || store.uninstalledAt) {
+      return;
+    }
+
+    if (isTokenExpired(store)) {
+      logger.warn({ storeId, shop: store.shopDomain }, 'Access token expired — skipping orders sync until merchant reopens app');
       return;
     }
 
