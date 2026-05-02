@@ -84,6 +84,8 @@ model IngestionRun {
   jobType       IngestionJobType @map("job_type")
   status        IngestionStatus  @default(PENDING)
   progressPct   Int              @default(0) @map("progress_pct")
+  progressTotal Int?             @map("progress_total")
+  progressDone  Int?             @map("progress_done")
   startedAt     DateTime?        @map("started_at")
   finishedAt    DateTime?        @map("finished_at")
   errorMessage  String?          @map("error_message") @db.Text

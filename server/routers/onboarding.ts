@@ -15,6 +15,8 @@ interface JobTypeStatus {
   jobType: IngestionJobType;
   status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
   progressPct: number;
+  progressTotal: number | null;
+  progressDone: number | null;
   errorMessage: string | null;
   startedAt: Date | null;
 }
@@ -36,11 +38,13 @@ export const onboardingRouter = router({
 
     const jobs: JobTypeStatus[] = JOB_TYPES.map((jobType, i) => {
       const run: IngestionRun | null = latestPerType[i] ?? null;
-      if (!run) return { jobType, status: 'PENDING', progressPct: 0, errorMessage: null, startedAt: null };
+      if (!run) return { jobType, status: 'PENDING', progressPct: 0, progressTotal: null, progressDone: null, errorMessage: null, startedAt: null };
       return {
         jobType,
         status: run.status,
         progressPct: run.progressPct,
+        progressTotal: run.progressTotal,
+        progressDone: run.progressDone,
         errorMessage: run.errorMessage,
         startedAt: run.createdAt,
       };

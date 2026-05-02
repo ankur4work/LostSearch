@@ -203,7 +203,12 @@ export async function ingestProducts(
     }
 
     if (opts.runId) {
-      await updateProgress(opts.runId, ((batchStart + batch.length) / productArray.length) * 100);
+      const done = batchStart + batch.length;
+      await updateProgress(
+        opts.runId,
+        (done / productArray.length) * 100,
+        { total: productArray.length, done },
+      );
     }
   }
 

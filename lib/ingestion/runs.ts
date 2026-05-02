@@ -22,10 +22,17 @@ export async function startRun(input: {
   });
 }
 
-export async function updateProgress(runId: string, progressPct: number): Promise<void> {
+export async function updateProgress(
+  runId: string,
+  progressPct: number,
+  counts?: { total: number; done: number },
+): Promise<void> {
   await prisma.ingestionRun.update({
     where: { id: runId },
-    data: { progressPct: Math.max(0, Math.min(100, Math.round(progressPct))) },
+    data: {
+      progressPct: Math.max(0, Math.min(100, Math.round(progressPct))),
+      ...(counts && { progressTotal: counts.total, progressDone: counts.done }),
+    },
   });
 }
 

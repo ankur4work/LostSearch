@@ -46,6 +46,8 @@ interface SyncJob {
   jobType: string;
   status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
   progressPct: number;
+  progressTotal: number | null;
+  progressDone: number | null;
   errorMessage: string | null;
   startedAt: Date | null;
 }
@@ -139,6 +141,11 @@ function SyncProgressPanel({
                 {effectiveStatus === 'RUNNING' && job.jobType === 'INGEST_PRODUCTS' && (
                   <div style={{ marginTop: 4, paddingLeft: 24 }}>
                     <ProgressBar progress={effectivePct} size="small" tone="primary" animated />
+                    {job.progressTotal !== null && job.progressDone !== null && (
+                      <Text as="span" variant="bodySm" tone="subdued">
+                        {job.progressDone.toLocaleString()} / {job.progressTotal.toLocaleString()} products synced
+                      </Text>
+                    )}
                   </div>
                 )}
                 {effectiveStatus === 'FAILED' && job.errorMessage && (
