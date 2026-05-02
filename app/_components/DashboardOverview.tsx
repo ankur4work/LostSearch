@@ -114,7 +114,7 @@ function SyncProgressPanel({
         </InlineStack>
 
         {!hasError && (
-          <ProgressBar progress={overallPct} size="small" tone="primary" animated />
+          <ProgressBar progress={overallPct} size="small" tone="primary" />
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -160,16 +160,18 @@ function SyncProgressPanel({
                           : 'Waiting…'}
                   </Text>
                 </InlineStack>
-                {effectiveStatus === 'RUNNING' && job.jobType === 'INGEST_PRODUCTS' && (
-                  <div style={{ marginTop: 4, paddingLeft: 24 }}>
-                    <ProgressBar progress={effectivePct} size="small" tone="primary" animated />
-                    {job.progressTotal !== null && job.progressDone !== null && (
+                {effectiveStatus === 'RUNNING' &&
+                  job.jobType === 'INGEST_PRODUCTS' &&
+                  job.progressTotal !== null &&
+                  job.progressDone !== null &&
+                  job.progressDone > 0 && (
+                    <div style={{ marginTop: 4, paddingLeft: 24 }}>
+                      <ProgressBar progress={effectivePct} size="small" tone="primary" animated />
                       <Text as="span" variant="bodySm" tone="subdued">
                         {job.progressDone.toLocaleString()} / {job.progressTotal.toLocaleString()} products synced
                       </Text>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
                 {effectiveStatus === 'FAILED' && job.errorMessage && (
                   <div style={{ paddingLeft: 24, marginTop: 4 }}>
                     <Text as="span" variant="bodySm" tone="critical">
