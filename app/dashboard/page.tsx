@@ -23,6 +23,10 @@ const MIN_MONTHLY_SEARCHES = 10;
 export default function DashboardPage(): JSX.Element {
   const auth = useTrpcAuth();
   const utils = trpc.useUtils();
+  // Timestamp when sync flipped to ready — used to keep polling summary for
+  // a bit after completion so we catch the classify job finishing (~30-60s later).
+  const [syncCompletedAt, setSyncCompletedAt] = useState<number | null>(null);
+
   const onboarding = trpc.onboarding.status.useQuery(undefined, {
     enabled: auth.ready,
     refetchInterval: (q) => (q.state.data?.ready ? false : 3000),
@@ -30,15 +34,21 @@ export default function DashboardPage(): JSX.Element {
   const summary = trpc.dashboard.summary.useQuery(undefined, {
     enabled: auth.ready,
     refetchOnWindowFocus: false,
-    refetchInterval: () => (onboarding.data?.ready === false ? 3000 : false),
+    refetchInterval: () => {
+      if (onboarding.data?.ready === false) return 3000;
+      // Keep polling for 2 minutes after sync completes to catch classify.
+      if (syncCompletedAt !== null && Date.now() - syncCompletedAt < 2 * 60 * 1000) return 8000;
+      return false;
+    },
   });
 
-  // When onboarding flips from in-progress → ready, force-refresh summary and
-  // gaps so the dashboard immediately shows the new gap counts from the sync.
+  // When onboarding flips from in-progress → ready, record the time and
+  // immediately invalidate so the first fresh fetch happens right away.
   const prevReady = useRef<boolean | undefined>(undefined);
   useEffect(() => {
     const ready = onboarding.data?.ready;
     if (prevReady.current === false && ready === true) {
+      setSyncCompletedAt(Date.now());
       void utils.dashboard.summary.invalidate();
       void utils.dashboard.gaps.invalidate();
     }

@@ -228,19 +228,12 @@ export function DashboardOverview({
       syncStartedAtRef.current = now;
       setSyncStartedAt(now);
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       setToast('Pulling fresh data from your store…');
-      const invalidateAll = async (): Promise<void> => {
-        await Promise.all([
-          utils.onboarding.status.invalidate(),
-          utils.dashboard.summary.invalidate(),
-          utils.dashboard.gaps.invalidate(),
-        ]);
-      };
-      // Staggered invalidation — catches the moment jobs flip to DONE.
-      for (const delay of [800, 2500, 5000, 8000, 12000, 18000, 25000]) {
-        setTimeout(() => void invalidateAll(), delay);
-      }
+      // Just kick off a single immediate refresh of the job status.
+      // dashboard/page.tsx handles continuous polling while not ready,
+      // and post-completion polling to catch classify finishing.
+      void utils.onboarding.status.invalidate();
     },
     onError: (err) => {
       setSyncStartedAt(null);
