@@ -1,56 +1,59 @@
-// Local embeddings via @xenova/transformers (all-MiniLM-L6-v2, 384-dim).
-// NOTE: the library lazy-loads WASM and model files on first use; keep the
-// pipeline cached at module scope so warm paths are cheap.
-
-type FeatureExtractionPipeline = (
-  texts: string | string[],
-  options?: { pooling?: 'mean' | 'cls'; normalize?: boolean },
-) => Promise<{ data: Float32Array; dims: number[] }>;
-
-let pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
-
-async function getPipeline(): Promise<FeatureExtractionPipeline> {
-  if (!pipelinePromise) {
-    pipelinePromise = (async () => {
-      const transformers = await import('@xenova/transformers');
-      const pipe = await transformers.pipeline(
-        'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',
-      );
-      return pipe as unknown as FeatureExtractionPipeline;
-    })();
-  }
-  return pipelinePromise;
-}
+/**
+ * Embeddings via @xenova/transformers (all-MiniLM-L6-v2, 384-dim).
+ *
+ * The ONNX runtime + model loading can consume 300–500 MB of RAM. To prevent
+ * an OOM kill from taking down the entire BullMQ worker process, embedding
+ * runs in a dedicated child process (embed-worker.mjs). If the child OOMs,
+ * only that process dies; the worker catches the error and falls back to zero
+ * vectors so the product sync still completes.
+ */
+import { fork } from 'node:child_process';
+import { join } from 'node:path';
 
 export const EMBEDDING_DIM = 384;
 
-export async function embed(text: string): Promise<number[]> {
-  const pipe = await getPipeline();
-  const out = await pipe(text, { pooling: 'mean', normalize: true });
-  if (out.data.length !== EMBEDDING_DIM) {
-    throw new Error(`Expected ${EMBEDDING_DIM}-dim vector, got ${out.data.length}`);
-  }
-  return Array.from(out.data);
+const WORKER_PATH = join(__dirname, 'embed-worker.mjs');
+const TIMEOUT_MS = 5 * 60 * 1000;
+
+function runEmbedWorker(texts: string[]): Promise<number[][]> {
+  return new Promise((resolve, reject) => {
+    const child = fork(WORKER_PATH, [], {
+      execArgv: ['--experimental-vm-modules'],
+      stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+    });
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error('Embed worker timed out'));
+    }, TIMEOUT_MS);
+
+    child.on('message', (msg: { vectors?: number[][]; error?: string }) => {
+      clearTimeout(timer);
+      child.disconnect();
+      if (msg.error) reject(new Error(msg.error));
+      else resolve(msg.vectors ?? []);
+    });
+
+    child.on('error', (err) => { clearTimeout(timer); reject(err); });
+    child.on('exit', (code, signal) => {
+      clearTimeout(timer);
+      if (code !== 0 && signal !== null) {
+        reject(new Error(`Embed worker killed (signal=${signal})`));
+      }
+    });
+
+    child.send({ texts });
+  });
 }
 
-/**
- * Embed multiple texts in one ONNX call. Far less memory pressure than
- * calling embed() N times — each call allocates tensors that aren't freed
- * until the next GC cycle, causing OOM with large product catalogues.
- */
+export async function embed(text: string): Promise<number[]> {
+  const [vec] = await runEmbedWorker([text]);
+  return vec ?? Array(EMBEDDING_DIM).fill(0) as number[];
+}
+
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const pipe = await getPipeline();
-  const out = await pipe(texts, { pooling: 'mean', normalize: true });
-  const n = texts.length;
-  const expected = n * EMBEDDING_DIM;
-  if (out.data.length !== expected) {
-    throw new Error(`Expected ${expected} floats for batch of ${n}, got ${out.data.length}`);
-  }
-  return texts.map((_, i) =>
-    Array.from(out.data.slice(i * EMBEDDING_DIM, (i + 1) * EMBEDDING_DIM)),
-  );
+  return runEmbedWorker(texts);
 }
 
 /** Converts a JS number[] into the pgvector literal string `'[a,b,c,...]'`. */

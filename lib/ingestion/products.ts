@@ -3,7 +3,7 @@ import { ShopifyClient } from '../shopify/client';
 import { runBulkQuery } from '../shopify/bulk';
 import { prisma } from '../prisma';
 import { logger } from '../logger';
-import { embedBatch, toVectorLiteral } from './embeddings';
+import { embedBatch, toVectorLiteral, EMBEDDING_DIM } from './embeddings';
 import { updateProgress } from './runs';
 
 const MIN_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -128,13 +128,26 @@ export async function ingestProducts(
   );
 
   const EMBED_BATCH = 32;
+  const ZERO_VECTOR = Array<number>(EMBEDDING_DIM).fill(0);
   const productArray = Array.from(products.values());
   let written = 0;
 
   for (let batchStart = 0; batchStart < productArray.length; batchStart += EMBED_BATCH) {
     const batch = productArray.slice(batchStart, batchStart + EMBED_BATCH);
     const embedTexts = batch.map(buildEmbeddingText);
-    const vectors = await embedBatch(embedTexts);
+
+    // Embedding is best-effort: if ONNX crashes or OOMs, fall back to zero
+    // vectors so the rest of the product data still reaches the DB.
+    let vectors: number[][];
+    try {
+      vectors = await embedBatch(embedTexts);
+    } catch (embedErr) {
+      logger.warn(
+        { shop: store.shopDomain, batchStart, err: String(embedErr) },
+        'embedBatch failed — writing products without vectors',
+      );
+      vectors = batch.map(() => ZERO_VECTOR);
+    }
 
     for (const [j, p] of batch.entries()) {
       const variants = variantsByParent.get(p.id) ?? [];
