@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { runClassificationPipeline } from '@/lib/engine/pipeline';
 import { acquireStoreMutex } from '@/lib/ingestion/mutex';
+import { invalidate } from '@/lib/cache';
 import { classifyQueue, type ClassifyJobData } from '../queue';
 
 export async function classifyProcessor(job: Job<ClassifyJobData>): Promise<void> {
@@ -24,6 +25,10 @@ export async function classifyProcessor(job: Job<ClassifyJobData>): Promise<void
       return;
     }
     await runClassificationPipeline(store);
+    // Bust dashboard summary cache so the next poll/refetch sees the new
+    // gap counts that classify just wrote. This is the authoritative bust —
+    // the one in finishRun fires before classify runs so it's too early.
+    await invalidate(`dash:summary:v1:${storeId}`).catch(() => undefined);
   } finally {
     await mutex.release();
   }
