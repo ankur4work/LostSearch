@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Page, Layout, BlockStack, SkeletonBodyText, Card } from '@shopify/polaris';
 import { trpc } from '@/lib/trpc/client';
 import { useTrpcAuth } from '@/lib/trpc/provider';
@@ -22,6 +22,7 @@ const MIN_MONTHLY_SEARCHES = 10;
 
 export default function DashboardPage(): JSX.Element {
   const auth = useTrpcAuth();
+  const utils = trpc.useUtils();
   const onboarding = trpc.onboarding.status.useQuery(undefined, {
     enabled: auth.ready,
     refetchInterval: (q) => (q.state.data?.ready ? false : 3000),
@@ -31,6 +32,18 @@ export default function DashboardPage(): JSX.Element {
     refetchOnWindowFocus: false,
     refetchInterval: () => (onboarding.data?.ready === false ? 3000 : false),
   });
+
+  // When onboarding flips from in-progress → ready, force-refresh summary and
+  // gaps so the dashboard immediately shows the new gap counts from the sync.
+  const prevReady = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    const ready = onboarding.data?.ready;
+    if (prevReady.current === false && ready === true) {
+      void utils.dashboard.summary.invalidate();
+      void utils.dashboard.gaps.invalidate();
+    }
+    prevReady.current = ready;
+  }, [onboarding.data?.ready, utils]);
   const trackerQ = trpc.dashboard.trackerStatus.useQuery(undefined, {
     enabled: auth.ready,
     staleTime: 5 * 60 * 1000,

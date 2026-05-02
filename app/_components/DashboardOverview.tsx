@@ -308,7 +308,7 @@ export function DashboardOverview({
       {(isSyncing || hasError) && syncJobs.length > 0 && (
         <SyncProgressPanel
           jobs={syncJobs}
-          overallPct={syncProgressPct}
+          overallPct={syncStartedAt !== null ? 0 : syncProgressPct}
           hasError={hasError}
           syncStartedAt={syncStartedAt}
         />
