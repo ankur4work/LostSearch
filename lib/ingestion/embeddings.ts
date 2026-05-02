@@ -29,11 +29,28 @@ export async function embed(text: string): Promise<number[]> {
   const pipe = await getPipeline();
   const out = await pipe(text, { pooling: 'mean', normalize: true });
   if (out.data.length !== EMBEDDING_DIM) {
-    throw new Error(
-      `Expected ${EMBEDDING_DIM}-dim vector, got ${out.data.length}`,
-    );
+    throw new Error(`Expected ${EMBEDDING_DIM}-dim vector, got ${out.data.length}`);
   }
   return Array.from(out.data);
+}
+
+/**
+ * Embed multiple texts in one ONNX call. Far less memory pressure than
+ * calling embed() N times — each call allocates tensors that aren't freed
+ * until the next GC cycle, causing OOM with large product catalogues.
+ */
+export async function embedBatch(texts: string[]): Promise<number[][]> {
+  if (texts.length === 0) return [];
+  const pipe = await getPipeline();
+  const out = await pipe(texts, { pooling: 'mean', normalize: true });
+  const n = texts.length;
+  const expected = n * EMBEDDING_DIM;
+  if (out.data.length !== expected) {
+    throw new Error(`Expected ${expected} floats for batch of ${n}, got ${out.data.length}`);
+  }
+  return texts.map((_, i) =>
+    Array.from(out.data.slice(i * EMBEDDING_DIM, (i + 1) * EMBEDDING_DIM)),
+  );
 }
 
 /** Converts a JS number[] into the pgvector literal string `'[a,b,c,...]'`. */

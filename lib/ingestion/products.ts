@@ -3,7 +3,7 @@ import { ShopifyClient } from '../shopify/client';
 import { runBulkQuery } from '../shopify/bulk';
 import { prisma } from '../prisma';
 import { logger } from '../logger';
-import { embed, toVectorLiteral } from './embeddings';
+import { embedBatch, toVectorLiteral } from './embeddings';
 import { updateProgress } from './runs';
 
 const MIN_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -127,63 +127,70 @@ export async function ingestProducts(
     'Bulk product fetch complete, writing rows',
   );
 
+  const EMBED_BATCH = 32;
+  const productArray = Array.from(products.values());
   let written = 0;
-  let i = 0;
-  for (const p of products.values()) {
-    const variants = variantsByParent.get(p.id) ?? [];
-    const descText = stripHtml(p.descriptionHtml);
-    const embedText = buildEmbeddingText(p);
-    const vector = await embed(embedText);
 
-    await prisma.$transaction(async (tx) => {
-      const row = await tx.catalogProduct.upsert({
-        where: {
-          storeId_shopifyProductId: { storeId: store.id, shopifyProductId: p.id },
-        },
-        create: {
-          storeId: store.id,
-          shopifyProductId: p.id,
-          title: p.title,
-          handle: p.handle,
-          productType: p.productType,
-          vendor: p.vendor,
-          tags: p.tags,
-          description: p.descriptionHtml,
-          descriptionText: descText,
-          variantsJson: variants as unknown as object,
-          optionsJson: (p.options ?? []) as unknown as object,
-          status: p.status,
-          embeddingText: embedText,
-          shopifyUpdatedAt: new Date(p.updatedAt),
-          syncedAt: new Date(),
-        },
-        update: {
-          title: p.title,
-          handle: p.handle,
-          productType: p.productType,
-          vendor: p.vendor,
-          tags: p.tags,
-          description: p.descriptionHtml,
-          descriptionText: descText,
-          variantsJson: variants as unknown as object,
-          optionsJson: (p.options ?? []) as unknown as object,
-          status: p.status,
-          embeddingText: embedText,
-          shopifyUpdatedAt: new Date(p.updatedAt),
-          syncedAt: new Date(),
-        },
+  for (let batchStart = 0; batchStart < productArray.length; batchStart += EMBED_BATCH) {
+    const batch = productArray.slice(batchStart, batchStart + EMBED_BATCH);
+    const embedTexts = batch.map(buildEmbeddingText);
+    const vectors = await embedBatch(embedTexts);
+
+    for (const [j, p] of batch.entries()) {
+      const variants = variantsByParent.get(p.id) ?? [];
+      const descText = stripHtml(p.descriptionHtml);
+      const embedText = embedTexts[j]!;
+      const vector = vectors[j]!;
+
+      await prisma.$transaction(async (tx) => {
+        const row = await tx.catalogProduct.upsert({
+          where: {
+            storeId_shopifyProductId: { storeId: store.id, shopifyProductId: p.id },
+          },
+          create: {
+            storeId: store.id,
+            shopifyProductId: p.id,
+            title: p.title,
+            handle: p.handle,
+            productType: p.productType,
+            vendor: p.vendor,
+            tags: p.tags,
+            description: p.descriptionHtml,
+            descriptionText: descText,
+            variantsJson: variants as unknown as object,
+            optionsJson: (p.options ?? []) as unknown as object,
+            status: p.status,
+            embeddingText: embedText,
+            shopifyUpdatedAt: new Date(p.updatedAt),
+            syncedAt: new Date(),
+          },
+          update: {
+            title: p.title,
+            handle: p.handle,
+            productType: p.productType,
+            vendor: p.vendor,
+            tags: p.tags,
+            description: p.descriptionHtml,
+            descriptionText: descText,
+            variantsJson: variants as unknown as object,
+            optionsJson: (p.options ?? []) as unknown as object,
+            status: p.status,
+            embeddingText: embedText,
+            shopifyUpdatedAt: new Date(p.updatedAt),
+            syncedAt: new Date(),
+          },
+        });
+        await tx.$executeRawUnsafe(
+          `UPDATE catalog_products SET embedding = $1::vector WHERE id = $2`,
+          toVectorLiteral(vector),
+          row.id,
+        );
       });
-      // pgvector column lives outside Prisma's type universe — write via raw SQL.
-      await tx.$executeRawUnsafe(
-        `UPDATE catalog_products SET embedding = $1::vector WHERE id = $2`,
-        toVectorLiteral(vector),
-        row.id,
-      );
-    });
-    written += 1;
-    i += 1;
-    if (opts.runId && i % 25 === 0) {
-      await updateProgress(opts.runId, (i / products.size) * 100);
+      written += 1;
+    }
+
+    if (opts.runId) {
+      await updateProgress(opts.runId, ((batchStart + batch.length) / productArray.length) * 100);
     }
   }
 

@@ -32,6 +32,8 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
 
     if (isTokenExpired(store)) {
       logger.warn({ storeId, shop: store.shopDomain }, 'Access token expired — skipping orders sync until merchant reopens app');
+      const run = await startRun({ storeId, jobType: 'INGEST_ORDERS', bullJobId: job.id ?? null, attempt: job.attemptsMade + 1 });
+      await finishRun(run.id, 'FAILED', 'Access token expired — please reopen the app in Shopify Admin to refresh it');
       return;
     }
 

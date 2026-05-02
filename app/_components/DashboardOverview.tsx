@@ -1,8 +1,8 @@
 'use client';
 
-import { Card, BlockStack, InlineStack, Text, Badge, Button, Divider, Toast, Frame, ProgressBar } from '@shopify/polaris';
+import { Card, BlockStack, InlineStack, Text, Badge, Button, Toast, Frame, ProgressBar, Banner } from '@shopify/polaris';
 import { formatDistanceToNow } from 'date-fns';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { Plan } from '@prisma/client';
 import { trpc } from '@/lib/trpc/client';
 
@@ -11,10 +11,9 @@ interface StatCardProps {
   value: string;
   hint?: string;
   accent: string;
-  progressPct?: number;
 }
 
-function StatCard({ label, value, hint, accent, progressPct }: StatCardProps): JSX.Element {
+function StatCard({ label, value, hint, accent }: StatCardProps): JSX.Element {
   return (
     <div
       style={{
@@ -39,12 +38,122 @@ function StatCard({ label, value, hint, accent, progressPct }: StatCardProps): J
           {hint}
         </div>
       )}
-      {typeof progressPct === 'number' && progressPct < 100 && (
-        <div style={{ marginTop: 10 }}>
-          <ProgressBar progress={progressPct} size="small" tone="primary" />
-        </div>
-      )}
     </div>
+  );
+}
+
+interface SyncJob {
+  jobType: string;
+  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+  progressPct: number;
+  errorMessage: string | null;
+  startedAt: Date | null;
+}
+
+const JOB_LABELS: Record<string, string> = {
+  INGEST_PRODUCTS: 'Products',
+  INGEST_ORDERS: 'Orders',
+  INGEST_SEARCH: 'Search analytics',
+};
+
+function SyncProgressPanel({
+  jobs,
+  overallPct,
+  hasError,
+  syncStartedAt,
+}: {
+  jobs: SyncJob[];
+  overallPct: number;
+  hasError: boolean;
+  syncStartedAt: number | null;
+}): JSX.Element {
+  return (
+    <Card>
+      <BlockStack gap="300">
+        <InlineStack align="space-between" blockAlign="center">
+          <Text as="h3" variant="headingMd">
+            {hasError ? 'Sync completed with errors' : 'Syncing your store…'}
+          </Text>
+          {!hasError && (
+            <Text as="span" variant="bodySm" tone="subdued">
+              {overallPct}%
+            </Text>
+          )}
+        </InlineStack>
+
+        {!hasError && (
+          <ProgressBar progress={overallPct} size="small" tone="primary" animated />
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {jobs.map((job) => {
+            // If the run started before the current sync was triggered, treat it
+            // as stale and show pending until a fresh run appears.
+            const isStale =
+              syncStartedAt !== null &&
+              job.startedAt !== null &&
+              new Date(job.startedAt).getTime() < syncStartedAt;
+
+            const effectiveStatus = isStale ? 'PENDING' : job.status;
+            const effectivePct = isStale ? 0 : job.progressPct;
+
+            const icon =
+              effectiveStatus === 'DONE'
+                ? '✓'
+                : effectiveStatus === 'FAILED'
+                  ? '✗'
+                  : effectiveStatus === 'RUNNING'
+                    ? '↻'
+                    : '○';
+
+            const color =
+              effectiveStatus === 'DONE'
+                ? '#16a34a'
+                : effectiveStatus === 'FAILED'
+                  ? '#dc2626'
+                  : effectiveStatus === 'RUNNING'
+                    ? '#2563eb'
+                    : '#6d7175';
+
+            return (
+              <div key={job.jobType}>
+                <InlineStack align="space-between" blockAlign="center">
+                  <InlineStack gap="200" blockAlign="center">
+                    <span style={{ color, fontWeight: 700, fontSize: 14, width: 16, textAlign: 'center' }}>
+                      {icon}
+                    </span>
+                    <Text as="span" variant="bodySm">
+                      {JOB_LABELS[job.jobType] ?? job.jobType}
+                    </Text>
+                  </InlineStack>
+                  <Text as="span" variant="bodySm" tone="subdued">
+                    {effectiveStatus === 'DONE'
+                      ? 'Done'
+                      : effectiveStatus === 'FAILED'
+                        ? 'Failed'
+                        : effectiveStatus === 'RUNNING'
+                          ? `${effectivePct}%`
+                          : 'Waiting…'}
+                  </Text>
+                </InlineStack>
+                {effectiveStatus === 'RUNNING' && job.jobType === 'INGEST_PRODUCTS' && (
+                  <div style={{ marginTop: 4, paddingLeft: 24 }}>
+                    <ProgressBar progress={effectivePct} size="small" tone="primary" animated />
+                  </div>
+                )}
+                {effectiveStatus === 'FAILED' && job.errorMessage && (
+                  <div style={{ paddingLeft: 24, marginTop: 4 }}>
+                    <Text as="span" variant="bodySm" tone="critical">
+                      {job.errorMessage}
+                    </Text>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </BlockStack>
+    </Card>
   );
 }
 
@@ -58,6 +167,8 @@ interface Props {
   currency: string;
   syncReady: boolean;
   syncProgressPct: number;
+  syncJobs: SyncJob[];
+  hasError: boolean;
   onUpgrade: () => void;
 }
 
@@ -71,23 +182,25 @@ export function DashboardOverview({
   currency,
   syncReady,
   syncProgressPct,
+  syncJobs,
+  hasError,
   onUpgrade,
 }: Props): JSX.Element {
   const utils = trpc.useUtils();
   const [toast, setToast] = useState<string | null>(null);
-  // Optimistic sync state: when user clicks Sync now, show progress immediately
-  // (worker can finish faster than 1 poll cycle, so without this the bar never
-  // renders). Cleared when real polling reports `ready`.
-  const [optimisticSyncing, setOptimisticSyncing] = useState(false);
+  // Timestamp of the last "Sync now" click — used to detect stale runs that
+  // predate this sync session and show 0% until fresh runs appear.
+  const syncStartedAtRef = useRef<number | null>(null);
+  const [syncStartedAt, setSyncStartedAt] = useState<number | null>(null);
+
   const syncNow = trpc.ingestion.syncNow.useMutation({
     onMutate: () => {
-      setOptimisticSyncing(true);
+      const now = Date.now();
+      syncStartedAtRef.current = now;
+      setSyncStartedAt(now);
     },
     onSuccess: async () => {
       setToast('Pulling fresh data from your store…');
-      // The worker is fast (parallel mutexes) but exact finish time is unknown.
-      // Re-invalidate at staggered intervals so we catch the moment the
-      // ingestion runs flip to DONE and `lastSyncedAt` updates in DB.
       const invalidateAll = async (): Promise<void> => {
         await Promise.all([
           utils.onboarding.status.invalidate(),
@@ -95,23 +208,27 @@ export function DashboardOverview({
           utils.dashboard.gaps.invalidate(),
         ]);
       };
-      setTimeout(() => void invalidateAll(), 800);
-      setTimeout(() => void invalidateAll(), 2500);
-      setTimeout(() => void invalidateAll(), 5000);
-      setTimeout(() => void invalidateAll(), 8000);
-      setTimeout(() => void invalidateAll(), 12000);
-      setTimeout(() => {
-        void invalidateAll();
-        setOptimisticSyncing(false);
-      }, 16000);
+      // Staggered invalidation — catches the moment jobs flip to DONE.
+      for (const delay of [800, 2500, 5000, 8000, 12000, 18000, 25000]) {
+        setTimeout(() => void invalidateAll(), delay);
+      }
     },
     onError: (err) => {
-      setOptimisticSyncing(false);
+      setSyncStartedAt(null);
       setToast(`Sync failed: ${err.message}`);
     },
   });
-  const isSyncing = optimisticSyncing || !syncReady;
-  const displayedPct = optimisticSyncing && syncReady ? 5 : syncProgressPct;
+
+  // Clear syncStartedAt once fresh runs (created after the click) appear for all jobs.
+  useEffect(() => {
+    if (syncStartedAt === null || syncJobs.length === 0) return;
+    const allFresh = syncJobs.every(
+      (j) => j.startedAt !== null && new Date(j.startedAt).getTime() >= syncStartedAt,
+    );
+    if (allFresh) setSyncStartedAt(null);
+  }, [syncJobs, syncStartedAt]);
+
+  const isSyncing = !syncReady || syncNow.isPending || syncStartedAt !== null;
   const relative = lastSyncedAt ? formatDistanceToNow(lastSyncedAt, { addSuffix: true }) : 'never';
   const formatMoney = (cents: number): string => {
     const fmt = new Intl.NumberFormat('en-US', {
@@ -180,6 +297,16 @@ export function DashboardOverview({
         </InlineStack>
       </Card>
 
+      {/* SYNC PROGRESS PANEL — visible while a sync is in flight or has errors */}
+      {(isSyncing || hasError) && syncJobs.length > 0 && (
+        <SyncProgressPanel
+          jobs={syncJobs}
+          overallPct={syncProgressPct}
+          hasError={hasError}
+          syncStartedAt={syncStartedAt}
+        />
+      )}
+
       {/* STAT CARDS ROW */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
         <StatCard
@@ -190,10 +317,15 @@ export function DashboardOverview({
         />
         <StatCard
           label="Status"
-          value={isSyncing ? 'Syncing' : 'Active'}
-          hint={isSyncing ? `${displayedPct}% complete` : `Last synced ${relative}`}
-          accent={isSyncing ? '#d97706' : '#16a34a'}
-          progressPct={isSyncing ? displayedPct : undefined}
+          value={isSyncing ? 'Syncing' : hasError ? 'Error' : 'Active'}
+          hint={
+            isSyncing
+              ? `${syncProgressPct}% complete`
+              : hasError
+                ? 'Sync error — see details above'
+                : `Last synced ${relative}`
+          }
+          accent={isSyncing ? '#d97706' : hasError ? '#dc2626' : '#16a34a'}
         />
         <StatCard
           label="Searches tracked"

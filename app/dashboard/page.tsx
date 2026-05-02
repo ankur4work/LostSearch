@@ -72,6 +72,8 @@ export default function DashboardPage(): JSX.Element {
 
   const ingestionReady = onboarding.data?.ready ?? true;
   const ingestPct = onboarding.data?.overallPct ?? 0;
+  const ingestJobs = onboarding.data?.jobs ?? [];
+  const ingestHasError = onboarding.data?.hasError ?? false;
 
   const s = summary.data;
   const showInsufficient = s.totalMonthlySearches < MIN_MONTHLY_SEARCHES;
@@ -93,6 +95,8 @@ export default function DashboardPage(): JSX.Element {
           currency={s.currency}
           syncReady={ingestionReady}
           syncProgressPct={ingestPct}
+          syncJobs={ingestJobs}
+          hasError={ingestHasError}
           onUpgrade={openUpgrade}
         />
 
