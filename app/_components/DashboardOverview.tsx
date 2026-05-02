@@ -113,10 +113,6 @@ function SyncProgressPanel({
           )}
         </InlineStack>
 
-        {!hasError && (
-          <ProgressBar progress={overallPct} size="small" tone="primary" />
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
           {effectiveJobs.map((job) => {
             const { effectiveStatus, effectivePct } = job;
