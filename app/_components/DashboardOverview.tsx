@@ -58,17 +58,47 @@ const JOB_LABELS: Record<string, string> = {
   INGEST_SEARCH: 'Search analytics',
 };
 
+// Weights must match the server-side WEIGHTS in onboarding router.
+const PANEL_WEIGHTS: Record<string, number> = {
+  INGEST_PRODUCTS: 0.6,
+  INGEST_ORDERS: 0.2,
+  INGEST_SEARCH: 0.2,
+};
+
 function SyncProgressPanel({
   jobs,
-  overallPct,
   hasError,
   syncStartedAt,
 }: {
   jobs: SyncJob[];
-  overallPct: number;
   hasError: boolean;
   syncStartedAt: number | null;
 }): JSX.Element {
+  // A run is stale (from a previous sync) only when it is NOT currently RUNNING.
+  // If it is RUNNING we always show real progress — hiding an active job produces
+  // the confusing "Waiting…" + "81% complete" split the user saw.
+  const effectiveJobs = jobs.map((job) => {
+    const stale =
+      syncStartedAt !== null &&
+      job.startedAt !== null &&
+      new Date(job.startedAt).getTime() < syncStartedAt &&
+      job.status !== 'RUNNING';
+    return {
+      ...job,
+      effectiveStatus: stale ? ('PENDING' as const) : job.status,
+      effectivePct: stale ? 0 : job.progressPct,
+    };
+  });
+
+  // Recompute overall from per-job effective values so it always matches
+  // what the individual rows show.
+  const overallPct = Math.round(
+    effectiveJobs.reduce((acc, j) => {
+      const pct = j.effectiveStatus === 'DONE' ? 100 : j.effectivePct;
+      return acc + (PANEL_WEIGHTS[j.jobType] ?? 0.33) * pct;
+    }, 0),
+  );
+
   return (
     <Card>
       <BlockStack gap="300">
@@ -88,16 +118,8 @@ function SyncProgressPanel({
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-          {jobs.map((job) => {
-            // If the run started before the current sync was triggered, treat it
-            // as stale and show pending until a fresh run appears.
-            const isStale =
-              syncStartedAt !== null &&
-              job.startedAt !== null &&
-              new Date(job.startedAt).getTime() < syncStartedAt;
-
-            const effectiveStatus = isStale ? 'PENDING' : job.status;
-            const effectivePct = isStale ? 0 : job.progressPct;
+          {effectiveJobs.map((job) => {
+            const { effectiveStatus, effectivePct } = job;
 
             const icon =
               effectiveStatus === 'DONE'
@@ -226,13 +248,16 @@ export function DashboardOverview({
     },
   });
 
-  // Clear syncStartedAt once fresh runs (created after the click) appear for all jobs.
+  // Clear syncStartedAt once every job is either fresh (started after the click)
+  // or is currently RUNNING (we show its real progress regardless of start time).
   useEffect(() => {
     if (syncStartedAt === null || syncJobs.length === 0) return;
-    const allFresh = syncJobs.every(
-      (j) => j.startedAt !== null && new Date(j.startedAt).getTime() >= syncStartedAt,
+    const allAccountedFor = syncJobs.every(
+      (j) =>
+        j.status === 'RUNNING' ||
+        (j.startedAt !== null && new Date(j.startedAt).getTime() >= syncStartedAt),
     );
-    if (allFresh) setSyncStartedAt(null);
+    if (allAccountedFor) setSyncStartedAt(null);
   }, [syncJobs, syncStartedAt]);
 
   const isSyncing = !syncReady || syncNow.isPending || syncStartedAt !== null;
@@ -308,7 +333,6 @@ export function DashboardOverview({
       {(isSyncing || hasError) && syncJobs.length > 0 && (
         <SyncProgressPanel
           jobs={syncJobs}
-          overallPct={syncStartedAt !== null ? 0 : syncProgressPct}
           hasError={hasError}
           syncStartedAt={syncStartedAt}
         />
