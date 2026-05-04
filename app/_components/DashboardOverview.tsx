@@ -106,11 +106,6 @@ function SyncProgressPanel({
           <Text as="h3" variant="headingMd">
             {hasError ? 'Sync completed with errors' : 'Syncing your store…'}
           </Text>
-          {!hasError && (
-            <Text as="span" variant="bodySm" tone="subdued">
-              {overallPct}%
-            </Text>
-          )}
         </InlineStack>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
@@ -342,7 +337,7 @@ export function DashboardOverview({
           value={isSyncing ? 'Syncing' : hasError ? 'Error' : 'Active'}
           hint={
             isSyncing
-              ? `${syncProgressPct}% complete`
+              ? 'In progress…'
               : hasError
                 ? 'Sync error — see details above'
                 : `Last synced ${relative}`
