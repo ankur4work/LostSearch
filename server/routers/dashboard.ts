@@ -21,7 +21,7 @@ function latestDate(dates: Array<Date | null | undefined>): Date | null {
 
 export const dashboardRouter = router({
   summary: protectedProcedure.query(async ({ ctx }) => {
-    if (!ctx.session.storeId) return emptySummary();
+    if (!ctx.session.storeId) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'No store in session' });
     const storeId = ctx.session.storeId;
     // Redis read-through cache — 60s by default. Cache key is per-store.
     const cacheKey = `dash:summary:v1:${storeId}`;

@@ -124,25 +124,27 @@ async function handleEmbeddedBootstrap(req: NextRequest): Promise<NextResponse> 
     select: { id: true },
   });
 
-  const store = existing
-    ? await refreshStoreToken({
+  const isNewStore = !existing;
+  const store = isNewStore
+    ? await upsertStoreWithToken({
         shopDomain: claims.shop,
         accessToken: exchanged.accessToken,
         scope: exchanged.scope,
         expiresIn: exchanged.expiresIn,
       })
-    : await upsertStoreWithToken({
+    : await refreshStoreToken({
         shopDomain: claims.shop,
         accessToken: exchanged.accessToken,
         scope: exchanged.scope,
         expiresIn: exchanged.expiresIn,
       });
 
-  // Webhooks now configured in shopify.app.toml — Shopify auto-registers them.
-  // No more REST ScriptTag — use a theme app extension if storefront tracking
-  // is needed in production.
-  const { enqueueInstallBackfill } = await import('@/jobs/schedule');
-  await enqueueInstallBackfill(store.id);
+  // Only enqueue a backfill on first install. Subsequent app opens just
+  // refresh the access token — they must not trigger a new sync.
+  if (isNewStore) {
+    const { enqueueInstallBackfill } = await import('@/jobs/schedule');
+    await enqueueInstallBackfill(store.id);
+  }
 
   logger.info({ shop: claims.shop, storeId: store.id }, 'Embedded bootstrap complete');
   return NextResponse.json({ ok: true, shop: claims.shop, storeId: store.id } satisfies OfflineBootstrapResponse);
