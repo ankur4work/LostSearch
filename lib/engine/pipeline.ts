@@ -4,12 +4,10 @@ import { env } from '../env';
 import { prisma } from '../prisma';
 import { logger } from '../logger';
 import { normalizeQuery } from '../ingestion/normalize';
-import { classify, type AggregatedQuery, type ProductRef } from './classifier';
+import { classify, type AggregatedQuery, type ProductRef, type SemanticMatchRef } from './classifier';
 import { estimateRevenue } from './revenue';
 import { engineConfig } from './config';
 import { detectCategory } from './category';
-import { getQueryEmbedding } from './embeddings-cache';
-import { topKSemanticMatches } from './semantic';
 import { invalidate } from '../cache';
 
 const redisPub = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null, lazyConnect: true });
@@ -126,28 +124,9 @@ export async function runClassificationPipeline(store: Store): Promise<Classific
       filterDimensions,
     };
 
-    // Semantic prefetch only if we can't short-circuit on earlier rules.
-    const needsSemantic =
-      !(hasFilter && aggregate.resultCount === 0) &&
-      !(
-        aggregate.resultCount > 0 &&
-        aggregate.clickCount === 0 &&
-        aggregate.occurrenceCount >= engineConfig.type3OccurrenceMin
-      );
-
-    let semanticMatches: Awaited<ReturnType<typeof topKSemanticMatches>> = [];
-    if (needsSemantic && productRefs.length > 0) {
-      try {
-        const embedding = await getQueryEmbedding(queryNormalized);
-        const magnitude = embedding.reduce((s, x) => s + x * x, 0);
-        if (magnitude > 0) {
-          semanticMatches = await topKSemanticMatches(store.id, embedding, 20);
-        }
-      } catch {
-        // Embed worker unavailable (OOM/SIGABRT on this VPS). Skip semantic —
-        // query falls through to TYPE_1/TYPE_2 via exact+fuzzy matching only.
-      }
-    }
+    // Semantic matching disabled — local ONNX model crashes on this host due
+    // to memory constraints. Classification uses exact + fuzzy matching only.
+    const semanticMatches: SemanticMatchRef[] = [];
 
     const decision = classify({ aggregate, products: productRefs, semanticMatches });
 
