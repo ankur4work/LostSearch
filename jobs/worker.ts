@@ -112,12 +112,11 @@ async function shutdown(): Promise<void> {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-// On startup, clear any mutex keys left over from the previous process.
-// If the worker crashed mid-job, Redis still holds the lock until TTL
-// (up to 30 min for products). Since we're single-instance, no live job
-// can hold a mutex — delete them all so the first sync runs immediately.
+// On startup, clear stale state left by a crashed worker process.
+// Since we're single-instance, no live job can hold a mutex or be mid-run.
 void (async () => {
   try {
+    // 1. Clear Redis mutex keys (TTL up to 30 min for products).
     const IORedis = (await import('ioredis')).default;
     const { env } = await import('@/lib/env');
     const r = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: 3, lazyConnect: true });
@@ -130,6 +129,23 @@ void (async () => {
     await r.quit();
   } catch (err) {
     logger.warn({ err: (err as Error).message }, 'Mutex cleanup on startup failed — continuing');
+  }
+
+  try {
+    // 2. Reset IngestionRun rows stuck in RUNNING state. If the worker crashed
+    //    mid-job, these rows never transition to DONE/FAILED. onboarding.status
+    //    queries the latest run per type — a stuck RUNNING row causes the
+    //    dashboard to show "Waiting…" forever on every page load.
+    const { prisma } = await import('@/lib/prisma');
+    const { count } = await prisma.ingestionRun.updateMany({
+      where: { status: 'RUNNING' },
+      data: { status: 'FAILED', errorMessage: 'Worker restarted — run interrupted' },
+    });
+    if (count > 0) {
+      logger.info({ count }, 'Reset stuck RUNNING IngestionRun records to FAILED on startup');
+    }
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, 'IngestionRun cleanup on startup failed — continuing');
   }
 })();
 
