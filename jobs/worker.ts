@@ -112,6 +112,27 @@ async function shutdown(): Promise<void> {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
+// On startup, clear any mutex keys left over from the previous process.
+// If the worker crashed mid-job, Redis still holds the lock until TTL
+// (up to 30 min for products). Since we're single-instance, no live job
+// can hold a mutex — delete them all so the first sync runs immediately.
+void (async () => {
+  try {
+    const IORedis = (await import('ioredis')).default;
+    const { env } = await import('@/lib/env');
+    const r = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: 3, lazyConnect: true });
+    await r.connect();
+    const keys = await r.keys('mutex:store:*');
+    if (keys.length > 0) {
+      await r.del(...keys);
+      logger.info({ count: keys.length }, 'Cleared stale store mutexes on startup');
+    }
+    await r.quit();
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, 'Mutex cleanup on startup failed — continuing');
+  }
+})();
+
 void seedCronJobs().catch((err) => {
   logger.error({ err: (err as Error).message }, 'seedCronJobs failed');
 });
