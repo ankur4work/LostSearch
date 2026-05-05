@@ -1,4 +1,4 @@
-import { Worker, type Job } from 'bullmq';
+import { Worker, Queue, type Job } from 'bullmq';
 import {
   connection,
   QUEUES,
@@ -132,7 +132,22 @@ void (async () => {
   }
 
   try {
-    // 2. Reset IngestionRun rows stuck in RUNNING state. If the worker crashed
+    // 2. Drain all waiting/delayed jobs from the ingestion queue.
+    // Before the fixed-jobId retry patch, each locked-mutex attempt enqueued
+    // a NEW job with a unique Date.now() jobId — hundreds of stale retry jobs
+    // can accumulate. Draining on startup clears the flood so fresh Sync Now
+    // jobs get processed immediately. seedCronJobs() re-seeds repeatable crons.
+    const ingestionQ = new Queue(QUEUES.INGESTION, { connection });
+    const classifyQ = new Queue(QUEUES.CLASSIFY, { connection });
+    await Promise.all([ingestionQ.drain(), classifyQ.drain()]);
+    await Promise.all([ingestionQ.close(), classifyQ.close()]);
+    logger.info('Drained ingestion + classify queues on startup');
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, 'Queue drain on startup failed — continuing');
+  }
+
+  try {
+    // 3. Reset IngestionRun rows stuck in RUNNING state. If the worker crashed
     //    mid-job, these rows never transition to DONE/FAILED. onboarding.status
     //    queries the latest run per type — a stuck RUNNING row causes the
     //    dashboard to show "Waiting…" forever on every page load.
