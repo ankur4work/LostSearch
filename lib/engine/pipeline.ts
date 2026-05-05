@@ -138,7 +138,13 @@ export async function runClassificationPipeline(store: Store): Promise<Classific
     let semanticMatches: Awaited<ReturnType<typeof topKSemanticMatches>> = [];
     if (needsSemantic && productRefs.length > 0) {
       const embedding = await getQueryEmbedding(queryNormalized);
-      semanticMatches = await topKSemanticMatches(store.id, embedding, 20);
+      // Skip pgvector query for zero vectors (embed fallback on OOM/crash).
+      // Cosine distance against a zero vector is undefined — pgvector throws
+      // division-by-zero. Zero vector → no semantic match → falls to TYPE_1.
+      const magnitude = embedding.reduce((s, x) => s + x * x, 0);
+      if (magnitude > 0) {
+        semanticMatches = await topKSemanticMatches(store.id, embedding, 20);
+      }
     }
 
     const decision = classify({ aggregate, products: productRefs, semanticMatches });
