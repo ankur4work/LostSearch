@@ -19,7 +19,7 @@ export async function ingestProductsProcessor(job: Job<IngestionJobData>): Promi
     await ingestionQueue.add(
       'ingest:products',
       { storeId, force, origin: job.data.origin },
-      { jobId: `retry-${storeId}-products-${Date.now()}`, delay: 3_000 },
+      { jobId: `retry-${storeId}-products`, delay: 3_000 },
     );
     return;
   }
@@ -60,7 +60,7 @@ export async function ingestProductsProcessor(job: Job<IngestionJobData>): Promi
           'ingest:products',
           { storeId, force: true, origin: 'manual' },
           {
-            jobId: `auth-retry-${storeId}-products-${Date.now()}`,
+            jobId: `auth-retry-${storeId}-products`,
             delay: AUTH_RETRY_DELAY_MS,
           },
         );

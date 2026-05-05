@@ -14,7 +14,7 @@ export async function ingestSearchProcessor(job: Job<IngestionJobData>): Promise
     await ingestionQueue.add(
       'ingest:search',
       { storeId, sinceDays, origin: job.data.origin },
-      { jobId: `retry-${storeId}-search-${Date.now()}`, delay: 3_000 },
+      { jobId: `retry-${storeId}-search`, delay: 3_000 },
     );
     return;
   }

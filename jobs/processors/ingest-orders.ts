@@ -19,7 +19,7 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
     await ingestionQueue.add(
       'ingest:orders',
       { storeId, sinceDays, origin: job.data.origin },
-      { jobId: `retry-${storeId}-orders-${Date.now()}`, delay: 3_000 },
+      { jobId: `retry-${storeId}-orders`, delay: 3_000 },
     );
     return;
   }
@@ -60,7 +60,7 @@ export async function ingestOrdersProcessor(job: Job<IngestionJobData>): Promise
           'ingest:orders',
           { storeId, sinceDays, origin: 'manual' },
           {
-            jobId: `auth-retry-${storeId}-orders-${Date.now()}`,
+            jobId: `auth-retry-${storeId}-orders`,
             delay: AUTH_RETRY_DELAY_MS,
           },
         );
