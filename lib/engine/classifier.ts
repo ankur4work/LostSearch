@@ -104,11 +104,20 @@ export function classify(inputs: ClassifierInputs): ClassificationDecision {
     });
   }
 
-  // Step 4 — Exact substring / tag match: query is fine, do not classify.
+  // Step 4 — Exact substring / tag match.
+  // If Shopify returned results (resultCount > 0) the product is surfaced — NONE.
+  // If resultCount === 0 the product exists in our catalog but Shopify search
+  // can't find it — that's a keyword / synonym fix (TYPE_2).
   const exactHit = findExactMatch(qNorm, products);
   if (exactHit) {
-    return decide('NONE', 1.0, [exactHit.id], lowVolume, {
-      step: 'exact_match',
+    if (aggregate.resultCount > 0) {
+      return decide('NONE', 1.0, [exactHit.id], lowVolume, {
+        step: 'exact_match',
+        detail: { matchedTitle: exactHit.title, exactTerm: qNorm },
+      });
+    }
+    return decide('TYPE_2', 0.9, [exactHit.id], lowVolume, {
+      step: 'exact_match_zero_results',
       detail: { matchedTitle: exactHit.title, exactTerm: qNorm },
     });
   }
