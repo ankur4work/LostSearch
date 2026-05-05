@@ -91,13 +91,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           occurredAt,
           dateBucket: bucket,
           occurrenceCount: 1,
-          resultCount: 0,
+          resultCount: resultCount ?? 0,
           clickCount: 0,
           filtersJson: filters ?? undefined,
         },
         update: {
           occurrenceCount: { increment: 1 },
           occurredAt,
+          // Keep the highest result_count seen — a later search for the same
+          // query on the full /search page may have a real non-zero count.
+          ...(resultCount != null ? { resultCount } : {}),
           filtersJson: filters ?? undefined,
         },
       });

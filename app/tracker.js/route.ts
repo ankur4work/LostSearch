@@ -110,8 +110,56 @@ function buildTracker(endpoint: string): string {
     }, true);
   }
 
+  // Intercept Shopify predictive-search fetch calls (/search/suggest?q=...).
+  // Most modern themes use AJAX autocomplete that never submits a form or
+  // navigates to /search — without this hook those queries are never captured.
+  function hookPredictive() {
+    var debounceMap = {};
+    var countMap = {};
+    var origFetch = window.fetch;
+    window.fetch = function(input, init) {
+      var promise = origFetch.apply(this, arguments);
+      try {
+        var url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (url.indexOf('/search/suggest') !== -1 || url.indexOf('/search?') !== -1) {
+          var parsed = new URL(url, window.location.origin);
+          var q = (parsed.searchParams.get('q') || parsed.searchParams.get('query') || '').trim();
+          if (q && q.length >= 2) {
+            // Clone response immediately (before theme JS reads it) and resolve
+            // the product count. Store as a resolved promise so debounce can
+            // read it synchronously-ish after 600ms.
+            var countPromise = promise.then(function(res) {
+              try { return res.clone().json(); } catch(e) { return Promise.resolve(null); }
+            }).then(function(data) {
+              try {
+                var prods = data && data.resources && data.resources.results && data.resources.results.products;
+                return prods ? prods.length : 0;
+              } catch(e) { return 0; }
+            }).catch(function() { return 0; });
+            clearTimeout(debounceMap[q]);
+            countMap[q] = countPromise;
+            debounceMap[q] = setTimeout(function(){
+              var cp = countMap[q];
+              delete debounceMap[q];
+              delete countMap[q];
+              if (cp) {
+                cp.then(function(count) {
+                  send({ event: 'search_submitted', query: q, resultCount: count, path: '/search/suggest' });
+                });
+              } else {
+                send({ event: 'search_submitted', query: q, path: '/search/suggest' });
+              }
+            }, 600);
+          }
+        }
+      } catch(e) {}
+      return promise;
+    };
+  }
+
   if (window.location.pathname.indexOf('/search') === 0) onSearchPage();
   hookForms();
+  hookPredictive();
 })();`;
 }
 
