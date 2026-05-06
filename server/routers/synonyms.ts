@@ -1,55 +1,63 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, router } from '../trpc';
-import { ShopifyClient } from '@/lib/shopify/client';
+import { decrypt } from '@/lib/crypto';
 import { track } from '@/lib/analytics';
 
-// Shopify Search & Discovery stores synonyms under /admin/api/{ver}/search/synonyms.json.
-// They're account-level, scoped to the storefront search. We POST a new group;
-// on undo we write an opposite audit row and POST a removal. UI surface is
-// append-only — undo never does a hard delete on our records.
+// Shopify synonym management uses the REST Admin API.
+// searchSynonymGroupCreate (GraphQL) does not exist; write_search_synonyms is not
+// a real OAuth scope Shopify grants. REST at /search/synonyms.json is the real API.
+const SYNONYM_API_VERSION = '2024-07';
+const SYNONYM_BASE = (shop: string) =>
+  `https://${shop}/admin/api/${SYNONYM_API_VERSION}/search/synonyms`;
 
-const APPLY_MUTATION = /* GraphQL */ `
-  mutation SynonymCreate($input: SearchSynonymGroupCreateInput!) {
-    searchSynonymGroupCreate(input: $input) {
-      searchSynonymGroup { id synonyms }
-      userErrors { field message }
-    }
+interface ShopifySynonymRecord {
+  id: number;
+  synonyms: string[];
+  type: string;
+}
+
+async function synonymCreate(
+  shop: string,
+  token: string,
+  synonyms: string[],
+): Promise<{ id: string; synonyms: string[] }> {
+  const res = await fetch(`${SYNONYM_BASE(shop)}.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+    body: JSON.stringify({ synonym: { synonyms, type: 'equivalent' } }),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Shopify synonym create failed (${res.status}): ${text.slice(0, 400)}`,
+    });
   }
-`;
+  const data = JSON.parse(text) as { synonym: ShopifySynonymRecord };
+  return { id: String(data.synonym.id), synonyms: data.synonym.synonyms };
+}
 
-const REMOVE_MUTATION = /* GraphQL */ `
-  mutation SynonymDelete($id: ID!) {
-    searchSynonymGroupDelete(id: $id) {
-      deletedSearchSynonymGroupId
-      userErrors { field message }
-    }
+async function synonymVerify(shop: string, token: string, id: string): Promise<boolean> {
+  const res = await fetch(`${SYNONYM_BASE(shop)}/${id}.json`, {
+    headers: { 'X-Shopify-Access-Token': token },
+  });
+  return res.ok;
+}
+
+async function synonymDelete(shop: string, token: string, id: string): Promise<void> {
+  const res = await fetch(`${SYNONYM_BASE(shop)}/${id}.json`, {
+    method: 'DELETE',
+    headers: { 'X-Shopify-Access-Token': token },
+  });
+  if (!res.ok && res.status !== 404) {
+    const text = await res.text().catch(() => '');
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Shopify synonym delete failed (${res.status}): ${text.slice(0, 400)}`,
+    });
   }
-`;
-
-const GET_MUTATION = /* GraphQL */ `
-  query SynonymGet($id: ID!) {
-    searchSynonymGroup(id: $id) { id synonyms }
-  }
-`;
-
-type ApplyResp = {
-  searchSynonymGroupCreate: {
-    searchSynonymGroup: { id: string; synonyms: string[] } | null;
-    userErrors: Array<{ field: string[]; message: string }>;
-  };
-};
-
-type RemoveResp = {
-  searchSynonymGroupDelete: {
-    deletedSearchSynonymGroupId: string | null;
-    userErrors: Array<{ field: string[]; message: string }>;
-  };
-};
-
-type GetResp = {
-  searchSynonymGroup: { id: string; synonyms: string[] } | null;
-};
+}
 
 async function requireStore(ctx: { session: { storeId: string | null } | null; prisma: typeof import('@/lib/prisma').prisma }) {
   const storeId = ctx.session?.storeId;
@@ -60,9 +68,6 @@ async function requireStore(ctx: { session: { storeId: string | null } | null; p
 }
 
 export const synonymsRouter = router({
-  // `addSynonym` (not `apply`) — tRPC reserves function prototype names
-  // like `apply`, `call`, `bind` because they collide with the client's
-  // generated object shape.
   addSynonym: protectedProcedure
     .input(
       z.object({
@@ -87,33 +92,13 @@ export const synonymsRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
       }
 
-      const client = new ShopifyClient(store);
+      const token = decrypt(store.accessToken);
       const synonyms = Array.from(new Set([input.query.trim(), product.title.trim()])).filter(Boolean);
 
-      const resp = await client.graphql<ApplyResp>(APPLY_MUTATION, { input: { synonyms } });
-      if (resp.errors && resp.errors.length > 0) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Shopify error: ${resp.errors.map((e) => e.message).join('; ')}`,
-        });
-      }
-      const userErrors = resp.data?.searchSynonymGroupCreate.userErrors ?? [];
-      if (userErrors.length > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Shopify rejected synonym: ${userErrors.map((e) => e.message).join('; ')}`,
-        });
-      }
-      const group = resp.data?.searchSynonymGroupCreate.searchSynonymGroup;
-      if (!group) {
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Shopify returned no synonym group' });
-      }
+      const group = await synonymCreate(store.shopDomain, token, synonyms);
 
-      // Verification read (acceptance criterion: "one-click synonym sync:
-      // merchant action → Shopify synonym exists → verified via a second Shopify
-      // API read"). A failure here rolls back our local record.
-      const check = await client.graphql<GetResp>(GET_MUTATION, { id: group.id });
-      if (!check.data?.searchSynonymGroup) {
+      const verified = await synonymVerify(store.shopDomain, token, group.id);
+      if (!verified) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Synonym verification read failed — not recording locally',
@@ -159,25 +144,16 @@ export const synonymsRouter = router({
       if (row.source === 'remove') {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Already undone' });
       }
-      // 14-day window per spec.
       const maxAgeMs = 14 * 86_400_000;
       if (Date.now() - row.appliedAt.getTime() > maxAgeMs) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Undo window (14 days) has passed' });
       }
 
       if (row.shopifySynonymId) {
-        const client = new ShopifyClient(store);
-        const resp = await client.graphql<RemoveResp>(REMOVE_MUTATION, { id: row.shopifySynonymId });
-        const userErrors = resp.data?.searchSynonymGroupDelete.userErrors ?? [];
-        if (userErrors.length > 0) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Shopify rejected delete: ${userErrors.map((e) => e.message).join('; ')}`,
-          });
-        }
+        const token = decrypt(store.accessToken);
+        await synonymDelete(store.shopDomain, token, row.shopifySynonymId);
       }
 
-      // Append-only audit: write a "remove" row pointing at the original.
       const removeRow = await ctx.prisma.synonymApplied.create({
         data: {
           storeId: store.id,
@@ -200,7 +176,6 @@ export const synonymsRouter = router({
   appliedThisWeek: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.storeId) return [];
     const since = new Date(Date.now() - 7 * 86_400_000);
-    // Get applies that are NOT undone within the window.
     const applied = await ctx.prisma.synonymApplied.findMany({
       where: { storeId: ctx.session.storeId, source: 'merchant', appliedAt: { gte: since } },
       orderBy: { appliedAt: 'desc' },

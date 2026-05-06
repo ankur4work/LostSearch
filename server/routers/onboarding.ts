@@ -50,7 +50,9 @@ export const onboardingRouter = router({
       };
     });
 
-    // FAILED counts as terminal so we stop polling and show an error state.
+    // FAILED is terminal — once all jobs are DONE or FAILED we're done polling.
+    // hasError is kept separate so the UI can show an error banner without
+    // treating it as "still in progress" and polling forever.
     const allDone = jobs.every((j) => j.status === 'DONE' || j.status === 'FAILED');
     const hasError = jobs.some((j) => j.status === 'FAILED');
     const overallPct = Math.round(
@@ -59,6 +61,6 @@ export const onboardingRouter = router({
         return acc + WEIGHTS[j.jobType] * pct;
       }, 0),
     );
-    return { ready: allDone && !hasError, hasError, jobs, overallPct };
+    return { ready: allDone, hasError, jobs, overallPct };
   }),
 });

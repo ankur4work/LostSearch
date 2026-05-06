@@ -220,6 +220,12 @@ function fuzzyMatch(qNorm: string, products: ProductRef[]): FuzzyHit | null {
 
   if (!best) return null;
 
+  // Reject character-level false positives: at least one query word (≥3 chars)
+  // must appear as a substring in the matched haystack. Without this guard,
+  // Fuse's bitap algorithm matches "air conditioner" against "inventory not
+  // tracked snowboard" through shared characters with no semantic overlap.
+  if (!hasWordOverlap(qNorm, best.haystack)) return null;
+
   const topIds = Array.from(idToScore.entries())
     .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
     .slice(0, 3)
@@ -252,4 +258,15 @@ function decide(
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(1, n));
+}
+
+/**
+ * Returns true if at least one word from `needle` (≥3 chars) appears as a
+ * substring in `haystack`. Prevents Fuse's character-level algorithm from
+ * producing matches with zero semantic overlap (e.g. "air conditioner" → "snowboard").
+ */
+function hasWordOverlap(needle: string, haystack: string): boolean {
+  const words = needle.split(' ').filter((w) => w.length >= 3);
+  if (words.length === 0) return true;
+  return words.some((w) => haystack.includes(w));
 }
