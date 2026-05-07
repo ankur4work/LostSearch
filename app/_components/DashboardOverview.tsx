@@ -315,8 +315,8 @@ export function DashboardOverview({
         </InlineStack>
       </Card>
 
-      {/* SYNC PROGRESS PANEL — visible while a sync is in flight or has errors */}
-      {(isSyncing || hasError) && syncJobs.length > 0 && (
+      {/* SYNC PROGRESS PANEL — visible only while a sync is actively in flight */}
+      {isSyncing && syncJobs.length > 0 && (
         <SyncProgressPanel
           jobs={syncJobs}
           hasError={hasError}
@@ -339,7 +339,7 @@ export function DashboardOverview({
             isSyncing
               ? 'In progress…'
               : hasError
-                ? 'Sync error — see details above'
+                ? 'Sync error — click Sync now to retry'
                 : `Last synced ${relative}`
           }
           accent={isSyncing ? '#d97706' : hasError ? '#dc2626' : '#16a34a'}

@@ -8,7 +8,6 @@ import { RevenueHero } from '../_components/RevenueHero';
 import { DashboardOverview } from '../_components/DashboardOverview';
 import { ProductGapsSection } from '../_components/ProductGapsSection';
 import { KeywordFixesSection } from '../_components/KeywordFixesSection';
-import { ResultsNoClickSection } from '../_components/ResultsNoClickSection';
 import {
   InsufficientDataEmpty,
   NoGapsFoundEmpty,
@@ -151,9 +150,6 @@ export default function DashboardPage(): JSX.Element {
               <KeywordFixesSection plan={s.plan} storeId={s.shopDomain} onUpgrade={openUpgrade} />
             </Layout.Section>
 
-            <Layout.Section>
-              <ResultsNoClickSection plan={s.plan} onUpgrade={openUpgrade} />
-            </Layout.Section>
           </Layout>
         )}
 
