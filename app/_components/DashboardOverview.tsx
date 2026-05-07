@@ -192,6 +192,7 @@ interface Props {
   syncJobs: SyncJob[];
   hasError: boolean;
   onUpgrade: () => void;
+  onSyncStarted?: () => void;
 }
 
 export function DashboardOverview({
@@ -207,6 +208,7 @@ export function DashboardOverview({
   syncJobs,
   hasError,
   onUpgrade,
+  onSyncStarted,
 }: Props): JSX.Element {
   const utils = trpc.useUtils();
   const [toast, setToast] = useState<string | null>(null);
@@ -220,12 +222,10 @@ export function DashboardOverview({
       const now = Date.now();
       syncStartedAtRef.current = now;
       setSyncStartedAt(now);
+      onSyncStarted?.();
     },
     onSuccess: () => {
       setToast('Pulling fresh data from your store…');
-      // Just kick off a single immediate refresh of the job status.
-      // dashboard/page.tsx handles continuous polling while not ready,
-      // and post-completion polling to catch classify finishing.
       void utils.onboarding.status.invalidate();
     },
     onError: (err) => {
@@ -234,17 +234,23 @@ export function DashboardOverview({
     },
   });
 
-  // Clear syncStartedAt once every job is either fresh (started after the click)
-  // or is currently RUNNING (we show its real progress regardless of start time).
+  // Clear syncStartedAt once every job is fresh/running — or as a safety net
+  // when syncReady=true and no mutation is in flight (jobs all done but arrived
+  // too fast to update syncJobs with fresh startedAt values).
   useEffect(() => {
-    if (syncStartedAt === null || syncJobs.length === 0) return;
+    if (syncStartedAt === null) return;
+    if (syncReady && !syncNow.isPending) {
+      setSyncStartedAt(null);
+      return;
+    }
+    if (syncJobs.length === 0) return;
     const allAccountedFor = syncJobs.every(
       (j) =>
         j.status === 'RUNNING' ||
         (j.startedAt !== null && new Date(j.startedAt).getTime() >= syncStartedAt),
     );
     if (allAccountedFor) setSyncStartedAt(null);
-  }, [syncJobs, syncStartedAt]);
+  }, [syncJobs, syncStartedAt, syncReady, syncNow.isPending]);
 
   const isSyncing = !syncReady || syncNow.isPending || syncStartedAt !== null;
   const relative = lastSyncedAt ? formatDistanceToNow(lastSyncedAt, { addSuffix: true }) : 'never';

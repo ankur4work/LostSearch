@@ -25,10 +25,17 @@ export default function DashboardPage(): JSX.Element {
   // Timestamp when sync flipped to ready — used to keep polling summary for
   // a bit after completion so we catch the classify job finishing (~30-60s later).
   const [syncCompletedAt, setSyncCompletedAt] = useState<number | null>(null);
+  const [syncInitiatedAt, setSyncInitiatedAt] = useState<number | null>(null);
 
   const onboarding = trpc.onboarding.status.useQuery(undefined, {
     enabled: auth.ready,
-    refetchInterval: (q) => (q.state.data?.ready ? false : 3000),
+    refetchInterval: (q) => {
+      if (!q.state.data?.ready) return 3000;
+      // Keep polling for 3 minutes after a manual sync so new job records
+      // appear in the panel instead of the old stale ones.
+      if (syncInitiatedAt !== null && Date.now() - syncInitiatedAt < 3 * 60 * 1000) return 3000;
+      return false;
+    },
   });
   const summary = trpc.dashboard.summary.useQuery(undefined, {
     enabled: auth.ready,
@@ -120,6 +127,7 @@ export default function DashboardPage(): JSX.Element {
           syncJobs={ingestJobs}
           hasError={ingestHasError}
           onUpgrade={openUpgrade}
+          onSyncStarted={() => setSyncInitiatedAt(Date.now())}
         />
 
         {ingestionReady && totalQueries === 0 && trackerQ.data?.enabled === false && (
