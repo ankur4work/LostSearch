@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, router } from '../trpc';
 import { invalidate as invalidateCache } from '@/lib/cache';
+import { clearStoreMutexes } from '@/lib/ingestion/mutex';
 
 export const ingestionRouter = router({
   /**
@@ -11,6 +12,8 @@ export const ingestionRouter = router({
   syncNow: protectedProcedure.mutation(async ({ ctx }) => {
     const storeId = ctx.session?.storeId;
     if (!storeId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+    await clearStoreMutexes(storeId);
 
     const { enqueueInstallBackfill } = await import('@/jobs/schedule');
     await enqueueInstallBackfill(storeId);

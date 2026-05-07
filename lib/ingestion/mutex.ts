@@ -27,6 +27,13 @@ export interface MutexHandle {
  * ingestion job types can run in parallel for the same store. Default scope
  * "all" preserves the legacy single-writer behavior for callers that need it.
  */
+/** Force-release all per-scope mutex keys for a store (used on manual sync). */
+export async function clearStoreMutexes(storeId: string): Promise<void> {
+  const scopes = ['products', 'orders', 'search', 'all'];
+  const keys = scopes.map((s) => `mutex:store:${storeId}:${s}`);
+  if (keys.length > 0) await redis.del(...keys);
+}
+
 export async function acquireStoreMutex(
   storeId: string,
   ttlSeconds = 600,
