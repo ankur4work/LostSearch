@@ -4,6 +4,22 @@ import { protectedProcedure, router } from '../trpc';
 import { env } from '@/lib/env';
 import { ShopifyClient } from '@/lib/shopify/client';
 
+const CANCEL_SUBSCRIPTION_MUTATION = /* GraphQL */ `
+  mutation AppSubCancel($id: ID!) {
+    appSubscriptionCancel(id: $id) {
+      appSubscription { id status }
+      userErrors { field message }
+    }
+  }
+`;
+
+type CancelChargeResp = {
+  appSubscriptionCancel: {
+    appSubscription: { id: string; status: string } | null;
+    userErrors: Array<{ field: string[]; message: string }>;
+  };
+};
+
 const CREATE_CHARGE_MUTATION = /* GraphQL */ `
   mutation AppSubCreate(
     $name: String!,
@@ -99,4 +115,39 @@ export const billingRouter = router({
       });
       return { confirmationUrl, chargeId: subscription.id, status: subscription.status };
     }),
+
+  cancelSubscription: protectedProcedure.mutation(async ({ ctx }) => {
+    const storeId = ctx.session.storeId;
+    if (!storeId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+    const store = await ctx.prisma.store.findUnique({ where: { id: storeId } });
+    if (!store || store.uninstalledAt) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Store missing' });
+    }
+    if (store.plan === 'FREE') {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Already on Free plan' });
+    }
+    if (!store.shopifyChargeId) {
+      throw new TRPCError({ code: 'BAD_REQUEST', message: 'No active subscription found' });
+    }
+
+    const client = new ShopifyClient(store);
+    const resp = await client.graphql<CancelChargeResp>(CANCEL_SUBSCRIPTION_MUTATION, {
+      id: store.shopifyChargeId,
+    });
+
+    const userErrors = resp.data?.appSubscriptionCancel.userErrors ?? [];
+    if (userErrors.length > 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Shopify cancel rejected: ${userErrors.map((e) => e.message).join('; ')}`,
+      });
+    }
+
+    await ctx.prisma.store.update({
+      where: { id: store.id },
+      data: { plan: 'FREE', shopifyChargeId: null, graceEndsAt: null },
+    });
+
+    return { ok: true };
+  }),
 });

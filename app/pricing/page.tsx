@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Page, BlockStack, Card, Text, Button, Banner } from '@shopify/polaris';
+import { Page, BlockStack, Card, Text, Button, Banner, Modal } from '@shopify/polaris';
 import { trpc } from '@/lib/trpc/client';
 import { useTrpcAuth } from '@/lib/trpc/provider';
 import { UpgradeModal } from '../_components/UpgradeModal';
@@ -15,7 +15,7 @@ const FREE_FEATURES = [
   { included: false, label: 'Full gap list — every missed search, not just the top 5' },
   { included: false, label: 'Dollar revenue estimate on each gap' },
   { included: false, label: 'Weekly digest email' },
-  { included: false, label: 'One-click Shopify Search & Discovery synonym sync' },
+  { included: false, label: 'Keyword fix suggestions with matched product' },
   { included: false, label: 'Priority email support' },
 ];
 
@@ -24,7 +24,7 @@ const GROWTH_FEATURES = [
   'Every gap shown — no top-5 cap',
   'Dollar revenue estimate per gap (with low/high band)',
   'Weekly digest email summarizing new gaps & fixes applied',
-  'One-click sync of suggested synonyms to Shopify Search & Discovery',
+  'Keyword fix suggestions with matched product title',
   'Priority email support',
 ];
 
@@ -33,7 +33,17 @@ export default function PricingPage(): JSX.Element {
   const planQ = trpc.billing.currentPlan.useQuery(undefined, { enabled: auth.ready });
   const summaryQ = trpc.dashboard.summary.useQuery(undefined, { enabled: auth.ready });
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [downgradeOpen, setDowngradeOpen] = useState(false);
   const plan = planQ.data?.plan ?? 'FREE';
+  const utils = trpc.useUtils();
+
+  const cancelSub = trpc.billing.cancelSubscription.useMutation({
+    onSuccess: () => {
+      setDowngradeOpen(false);
+      void utils.billing.currentPlan.invalidate();
+      void utils.dashboard.summary.invalidate();
+    },
+  });
 
   const openUpgrade = (): void => {
     analytics.track('upgrade_cta_clicked', { where: 'pricing' });
@@ -219,16 +229,21 @@ export default function PricingPage(): JSX.Element {
                 <Button variant="primary" size="large" onClick={openUpgrade} fullWidth>
                   Start 14-day free trial
                 </Button>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: '#6d7175',
-                    marginTop: 10,
-                    textAlign: 'center',
-                  }}
-                >
+                <div style={{ fontSize: 11, color: '#6d7175', marginTop: 10, textAlign: 'center' }}>
                   Cancel anytime · Billed through Shopify · No credit card extra
                 </div>
+              </div>
+            )}
+            {plan === 'GROWTH' && (
+              <div style={{ marginTop: 22 }}>
+                <Button
+                  variant="plain"
+                  tone="critical"
+                  onClick={() => setDowngradeOpen(true)}
+                  fullWidth
+                >
+                  Downgrade to Free
+                </Button>
               </div>
             )}
           </div>
@@ -276,6 +291,33 @@ export default function PricingPage(): JSX.Element {
         onClose={() => setUpgradeOpen(false)}
         storeId={summaryQ.data?.shopDomain ?? ''}
       />
+
+      <Modal
+        open={downgradeOpen}
+        onClose={() => setDowngradeOpen(false)}
+        title="Downgrade to Free?"
+        primaryAction={{
+          content: 'Yes, downgrade',
+          destructive: true,
+          loading: cancelSub.isPending,
+          onAction: () => cancelSub.mutate(),
+        }}
+        secondaryActions={[{ content: 'Keep Growth', onAction: () => setDowngradeOpen(false) }]}
+      >
+        <Modal.Section>
+          <Text as="p">
+            Your subscription will be cancelled immediately. You&rsquo;ll lose access to the full
+            gap list, revenue estimates, and digest emails. Your historical data stays.
+          </Text>
+          {cancelSub.isError && (
+            <div style={{ marginTop: 12 }}>
+              <Text as="p" tone="critical">
+                {cancelSub.error.message}
+              </Text>
+            </div>
+          )}
+        </Modal.Section>
+      </Modal>
     </Page>
   );
 }
