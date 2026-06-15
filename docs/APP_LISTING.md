@@ -1,106 +1,71 @@
-# Shopify App Store listing copy
+# Shopify App Store listing copy — DemandRadar (June 2026 submission)
 
-## Title
+Copy verified against form limits and current app behavior (two plans: Free /
+Growth $9 with 14-day trial; read-only scopes; no synonym write-back — keyword
+fixes are suggestions, not one-click sync).
 
-Search Failure Miner — Find Your Missing Revenue
+## App name (30 max — 11 used)
 
-## Subtitle
+DemandRadar
 
-Turn failed searches into ranked product gaps in 5 minutes
+## Primary category
 
-## Long description (structured)
+Store management → Analytics
+(Secondary, subject to review: Search and filtering)
 
-### What shoppers search for that you don't sell — the fastest revenue you've never found.
+## Languages
 
-Every day, shoppers type things into your Shopify search that return nothing,
-or return products but don't get a click. Each of those is a revenue signal
-you're missing. Search Failure Miner reads your Shopify search analytics,
-classifies every failed search, and puts a dollar figure on it.
+English
 
-**Find at least one $500+ gap in your first 30 days, or Growth is free for
-a month.** (Terms in the app.)
+## Introduction (100 max — 93 used)
 
-### 5 key benefits
+See which store searches fail and what they cost you. Get ranked product gaps with fix ideas.
 
-1. **60-second time-to-first-insight.** Install → land on a dashboard with real
-   numbers within 5 minutes. No configuration, no data entry.
-2. **Four types of failure, ranked by revenue.** Product gaps, keyword
-   mismatches, filter failures, and "results shown but no click." Each rule is
-   auditable via a `reasoning` trail — no black boxes.
-3. **One-click fixes.** For keyword-mismatch gaps, add a synonym to Shopify
-   Search & Discovery without leaving the app. 14-day undo.
-4. **India-first synonym coverage.** Built-in support for kurta, lehenga,
-   bandhgala, sherwani, dupatta, and 300+ more Hindi-English retail terms.
-   Invaluable if you sell into South Asian markets.
-5. **Weekly revenue digest.** Every Monday at 09:00 in your timezone — new
-   gaps, fixes you made, estimated impact.
+## App details (500 max — 497 used)
 
-### How it works
+Shoppers leave when search returns nothing. DemandRadar tracks searches on your storefront, finds the ones that failed, and explains why: the product is missing, the right product exists but does not match the words shoppers use, or results appeared but drew no interest. Each gap is ranked by estimated revenue based on your own order history. Keyword gaps include fix suggestions matched to your catalog, and a weekly email digest summarizes new gaps so you stay informed without opening the app.
 
-- We read your Shopify Search & Discovery analytics (read-only) and match
-  each query against your product catalog using fuzzy, synonym, and semantic
-  (local ML) matching.
-- We pair volume with your store's actual AOV and a category-specific
-  conversion benchmark to estimate monthly revenue impact per gap.
-- All ML runs locally — zero external AI APIs, zero data leaves our servers.
+## Features (80 max each)
 
-### Integration list
+1. Automatic storefront search tracking, installs with the app with no code changes
+2. Classifies every failed search: missing product, wrong match, or low interest
+3. Ranks each gap by estimated monthly revenue from your own order history
+4. Keyword fix suggestions matched to existing products in your catalog
+5. Weekly email digest of new gaps and search performance
 
-- Shopify Search & Discovery (read + write synonyms)
-- Shopify Admin GraphQL API (2025-04)
-- Shopify Billing API (Growth plan)
-- Shopify webhooks: app/uninstalled, customers/data_request, customers/redact, shop/redact, app_subscriptions/update
+## Demo store URL
 
-### What we don't store
+Leave blank for this submission. (Do not link a password-protected dev store —
+guideline violation. Build a public demo store later if conversion matters.)
 
-- No customer PII. Ever. No names, no emails, no addresses, no cart contents.
-- All Shopify access tokens AES-256-GCM encrypted at rest.
-- GDPR-compliant deletion, 48h reinstall window.
+## Pricing (configure in the dashboard pricing section, not free text)
 
-## Pricing
-
-| | Free | Growth | Pro |
-|---|---|---|---|
-| Monthly | $0 | **$15** | $49 |
-| Ranked gaps visible | Top 5 | All | All |
-| One-click synonym sync | — | ✓ | ✓ |
-| Weekly email digest | — | ✓ | ✓ |
-| Results-No-Click analytics | — | ✓ | ✓ |
-| Multi-user access | — | — | ✓ |
-| Slack alerts | — | — | ✓ |
-| Priority support | — | — | ✓ |
-
-Growth includes a 14-day free trial. Cancel anytime from Shopify Admin.
-
-## Screenshots (8 × 1600×1000, produced separately)
-
-1. **Hero dashboard** — the "you're missing $N/mo" headline in full context.
-2. **Product gaps section** — ranked list with revenue per row.
-3. **Gap detail modal** — reasoning JSON + sparkline + sourcing deep-links.
-4. **Keyword fixes with add-synonym modal** — the one-click moment.
-5. **Digest email preview** — Gmail rendering of the weekly email.
-6. **Onboarding progress** — 3 ingestion bars with progress percentages.
-7. **Methodology page** — shows the formula openly.
-8. **Free-tier blur lock** — upgrade CTA with real aggregate value.
+| | Free | Growth |
+|---|---|---|
+| Monthly | $0 | $9 |
+| Trial | — | 14 days |
+| Gaps visible | Top 5 | All |
+| Revenue estimate per gap | — | ✓ |
+| Weekly digest email | — | ✓ |
+| Keyword fix suggestions | — | ✓ |
+| Priority email support | — | ✓ |
 
 ## App icon
 
-1200×1200 PNG. Mark concept: a magnifying glass with a dollar sign at the
-intersection, set in our brand green (#008060). Flat, no gradient, distinct
-silhouette at 32×32.
+1200×1200 PNG required — upload in the dashboard before submitting (the form
+flags it as missing). Concept: magnifying glass with a missing/void center,
+brand green #008060, flat, readable at 32×32.
 
-## Demo video
+## Support
 
-60 seconds, narrated. Script outline:
+- Email: support@demandradar.solnix.store
+- In-app support link in the NavMenu
 
-- 0:00–0:10 problem ("every day, shoppers search for things you don't sell — and you don't know")
-- 0:10–0:25 install → OAuth → onboarding progress
-- 0:25–0:40 dashboard appears with real numbers on a demo store
-- 0:40–0:50 click a keyword-mismatch row → add synonym → Shopify confirmation
-- 0:50–1:00 digest email arrives the following Monday ("you saved $840 this week")
+## DO NOT reuse from the old Search Failure Miner listing (review violations)
 
-## Support channels
-
-- Email: support@searchfailureminer.app (24h SLA Mon–Fri, 48h weekends)
-- In-app support link lives in the NavMenu
-- Status page: status.searchfailureminer.app (to be provisioned)
+- "$500+ gap or Growth is free" guarantee — unverifiable claim
+- "60-second time-to-first-insight", "5 minutes" — statistics
+- "India-first synonym coverage … 300+ terms" — count claim + feature removed
+- "One-click synonym sync to Search & Discovery" — write scope removed
+- "Results-No-Click analytics" — section removed from the app
+- $15 Growth price / Pro $49 plan — current app has Free + $9 Growth only

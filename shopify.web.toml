@@ -1,4 +1,4 @@
-name = "lostsearch-web"
+name = "demandradar-web"
 roles = ["frontend", "backend"]
 webhooks_path = "/webhooks"
 

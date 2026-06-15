@@ -32,9 +32,9 @@ const EnvSchema = z.object({
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  FROM_EMAIL: z.string().email().default('no-reply@searchfailureminer.app'),
-  SUPPORT_EMAIL: z.string().email().default('support@searchfailureminer.app'),
-  COMPANY_ADDRESS: z.string().default('LostSearch · Bangalore, India'),
+  FROM_EMAIL: z.string().email().default('no-reply@demandradar.solnix.store'),
+  SUPPORT_EMAIL: z.string().email().default('support@demandradar.solnix.store'),
+  COMPANY_ADDRESS: z.string().default('DemandRadar · Bangalore, India'),
 
   // Analytics (optional self-hosted PostHog).
   POSTHOG_KEY: z.string().optional(),
@@ -49,7 +49,7 @@ const EnvSchema = z.object({
   SENTRY_DSN: z.string().url().optional(),
   SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   ADMIN_EMAILS: z.string().default(''),
-  PRIVACY_CONTACT_EMAIL: z.string().email().default('privacy@searchfailureminer.app'),
+  PRIVACY_CONTACT_EMAIL: z.string().email().default('privacy@demandradar.solnix.store'),
   DPA_URL: z.string().url().optional(),
 
   // Rate limits (Redis token bucket). Tune per environment.

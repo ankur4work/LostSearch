@@ -1,26 +1,26 @@
 {%- comment -%}
-  LostSearch Storefront Tracker — app embed block.
+  DemandRadar Storefront Tracker — app embed block.
 
-  Once a merchant installs LostSearch and enables this embed in their theme
-  editor (Theme → App embeds → toggle "LostSearch Storefront Tracker"), the
+  Once a merchant installs DemandRadar and enables this embed in their theme
+  editor (Theme → App embeds → toggle "DemandRadar Storefront Tracker"), the
   script below loads on every page and captures every storefront search:
   what shoppers typed, how many results came back, whether they clicked.
 
   No PII is captured — only the query string, result count, and a timestamp.
-  See https://lostsearch.solnix.store/methodology for full details.
+  See https://demandradar.solnix.store/methodology for full details.
 {%- endcomment -%}
 
 {% if block.settings.enabled %}
   <script
-    src="https://lostsearch.solnix.store/tracker.js"
+    src="https://demandradar.solnix.store/tracker.js"
     defer
-    data-lostsearch="storefront-tracker"
+    data-demandradar="storefront-tracker"
   ></script>
 {% endif %}
 
 {% schema %}
 {
-  "name": "LostSearch Tracker",
+  "name": "DemandRadar Tracker",
   "target": "head",
   "settings": [
     {
@@ -28,7 +28,7 @@
       "id": "enabled",
       "label": "Enable storefront search tracking",
       "default": true,
-      "info": "Captures shopper search queries to surface revenue gaps. Required for LostSearch to work."
+      "info": "Captures shopper search queries to surface revenue gaps. Required for DemandRadar to work."
     }
   ]
 }

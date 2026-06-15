@@ -1,6 +1,6 @@
 # PII inventory
 
-Inventory of every piece of personal data Search Failure Miner stores. Reviewed
+Inventory of every piece of personal data DemandRadar stores. Reviewed
 quarterly; last review 2026-04-22.
 
 | Data | Column(s) | Source | Purpose | Retention | Access |
@@ -45,4 +45,4 @@ quarterly; last review 2026-04-22.
 
 ## Contact
 
-Privacy officer: see `PRIVACY_CONTACT_EMAIL` env var (default: privacy@searchfailureminer.app).
+Privacy officer: see `PRIVACY_CONTACT_EMAIL` env var (default: privacy@demandradar.solnix.store).

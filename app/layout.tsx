@@ -12,7 +12,7 @@ import './globals.css';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'LostSearch',
+  title: 'DemandRadar',
   description: 'Turn Shopify search gaps into revenue.',
 };
 

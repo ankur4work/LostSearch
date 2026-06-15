@@ -1,4 +1,4 @@
-// Search Failure Miner — data model
+// DemandRadar — data model
 // 30-day retention enforced by application logic; uninstall sets uninstalledAt.
 
 generator client {

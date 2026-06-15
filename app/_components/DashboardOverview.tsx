@@ -293,11 +293,11 @@ export function DashboardOverview({
                 fontWeight: 700,
               }}
             >
-              LS
+              DR
             </div>
             <BlockStack gap="050">
               <Text as="h1" variant="headingXl">
-                LostSearch Dashboard
+                DemandRadar Dashboard
               </Text>
               <Text as="p" tone="subdued" variant="bodySm">
                 Recover revenue from failed shopper searches on {storeName}

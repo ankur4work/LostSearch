@@ -81,7 +81,7 @@ export const billingRouter = router({
       const trialDays = env.GROWTH_PLAN_TRIAL_DAYS;
 
       const resp = await client.graphql<CreateChargeResp>(CREATE_CHARGE_MUTATION, {
-        name: `LostSearch — ${input.plan}`,
+        name: `DemandRadar — ${input.plan}`,
         returnUrl: `${ctx.appUrl}/billing/callback?shop=${encodeURIComponent(store.shopDomain)}`,
         trialDays,
         test: env.BILLING_TEST_MODE,

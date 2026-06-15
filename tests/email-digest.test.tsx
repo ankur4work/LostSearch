@@ -16,7 +16,7 @@ const base: DigestEmailProps = {
   dashboardUrl: 'https://app.example/?shop=acme.myshopify.com',
   methodologyUrl: 'https://app.example/methodology',
   unsubscribeUrl: 'https://app.example/unsubscribe?token=abc',
-  companyAddress: 'Search Failure Miner · Bangalore, India',
+  companyAddress: 'DemandRadar · Bangalore, India',
   plan: 'GROWTH',
 };
 

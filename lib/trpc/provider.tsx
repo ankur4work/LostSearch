@@ -75,7 +75,7 @@ export function TrpcProvider({ children }: { children: ReactNode }): JSX.Element
         // Still mark auth ready so the UI renders an error rather than hanging.
         // eslint-disable-next-line no-console
         console.error(
-          '[LostSearch] App Bridge not detected after 10s. Check that SHOPIFY_API_KEY matches the app client ID and the page is loaded inside Shopify admin.',
+          '[DemandRadar] App Bridge not detected after 10s. Check that SHOPIFY_API_KEY matches the app client ID and the page is loaded inside Shopify admin.',
           { apiKeyMeta: document.querySelector('meta[name="shopify-api-key"]')?.getAttribute('content') ?? '(missing)' },
         );
         setAuth({ ready: true });

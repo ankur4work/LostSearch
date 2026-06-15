@@ -67,7 +67,7 @@ export default function PricingPage(): JSX.Element {
               Recover lost revenue. Pay nothing while you decide.
             </Text>
             <Text as="p" tone="subdued">
-              Every Shopify store loses revenue to searches that return nothing. LostSearch finds
+              Every Shopify store loses revenue to searches that return nothing. DemandRadar finds
               those moments and tells you exactly what to fix. Start on Free — upgrade only when
               you see real gaps worth recovering.
             </Text>

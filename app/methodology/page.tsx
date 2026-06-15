@@ -1,9 +1,9 @@
 import { env } from '@/lib/env';
 
 export const metadata = {
-  title: 'Methodology · LostSearch',
+  title: 'Methodology · DemandRadar',
   description:
-    'How LostSearch classifies failed Shopify storefront searches and estimates the revenue impact for each gap.',
+    'How DemandRadar classifies failed Shopify storefront searches and estimates the revenue impact for each gap.',
   robots: { index: true, follow: true },
   alternates: { canonical: `${process.env.SHOPIFY_APP_URL ?? ''}/methodology` },
 };
@@ -148,10 +148,10 @@ export default function MethodologyPage(): JSX.Element {
           METHODOLOGY
         </div>
         <h1 style={{ fontSize: 34, fontWeight: 800, margin: 0, marginBottom: 10, lineHeight: 1.15 }}>
-          How LostSearch classifies gaps and estimates revenue.
+          How DemandRadar classifies gaps and estimates revenue.
         </h1>
         <p style={{ fontSize: 16, opacity: 0.94, margin: 0, maxWidth: 640 }}>
-          Every shopper search on your storefront tells you something. LostSearch listens, sorts
+          Every shopper search on your storefront tells you something. DemandRadar listens, sorts
           each search into a clear category, and turns the failed ones into a ranked list of
           revenue you can recover. This page explains exactly how.
         </p>
@@ -176,7 +176,7 @@ export default function MethodologyPage(): JSX.Element {
           <li>
             <strong>Storefront search events</strong> — the query text a shopper typed, how many
             results came back, and whether they clicked one. Captured by a small storefront
-            tracker installed automatically when you add LostSearch.
+            tracker installed automatically when you add DemandRadar.
           </li>
         </ul>
         <p style={PARA_STYLE}>

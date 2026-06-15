@@ -1,4 +1,4 @@
-title = "Search Failure Miner gitleaks config"
+title = "DemandRadar gitleaks config"
 
 [extend]
 useDefault = true

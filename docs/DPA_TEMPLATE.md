@@ -1,13 +1,13 @@
 # Data Processing Addendum (template)
 
-_This is a template. Actual DPAs between Search Failure Miner (the "Processor")
+_This is a template. Actual DPAs between DemandRadar (the "Processor")
 and the Customer (the "Controller") are prepared from this boilerplate on
 request. Not legal advice. Review with counsel before use._
 
 ## 1. Subject matter
 
 This DPA governs Processor's processing of Personal Data on behalf of the
-Controller in connection with the Search Failure Miner application.
+Controller in connection with the DemandRadar application.
 
 ## 2. Duration
 

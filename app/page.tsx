@@ -126,7 +126,7 @@ export default function HomePage(): JSX.Element {
                 }}
               >
                 Every &ldquo;0 results&rdquo; on your storefront is a buyer with intent who walked
-                away. LostSearch surfaces every missed query, ranks them by revenue impact, and
+                away. DemandRadar surfaces every missed query, ranks them by revenue impact, and
                 tells you exactly what to fix — usually within minutes of install.
               </p>
               <div style={{ marginTop: 20, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
@@ -215,7 +215,7 @@ export default function HomePage(): JSX.Element {
         <Card>
           <BlockStack gap="400">
             <Text as="h2" variant="headingMd">
-              How LostSearch works
+              How DemandRadar works
             </Text>
             <div
               style={{
@@ -331,7 +331,7 @@ export default function HomePage(): JSX.Element {
                       ✓ Sync regularly — but don&rsquo;t obsess
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      LostSearch auto-syncs daily. Hit <strong>Sync now</strong> on the dashboard
+                      DemandRadar auto-syncs daily. Hit <strong>Sync now</strong> on the dashboard
                       after a product launch, a price drop, or anytime you&rsquo;ve added new SKUs
                       so gap detection sees the new catalog. Revenue numbers stabilize once you
                       have <strong>50+ monthly searches</strong> — below that, the dashboard
@@ -372,7 +372,7 @@ export default function HomePage(): JSX.Element {
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
                       New collections, seasonal launches, or even renaming products can create
-                      fresh search gaps overnight. Make a habit of opening LostSearch within 48
+                      fresh search gaps overnight. Make a habit of opening DemandRadar within 48
                       hours of any catalog shift — that&rsquo;s when the highest-impact gaps
                       surface and the easiest wins are still on the table.
                     </Text>
