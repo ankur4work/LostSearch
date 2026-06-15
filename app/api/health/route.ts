@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { env } from '@/lib/env';
+import { checkAppIdentity } from '@/lib/shopify/app-identity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,20 +15,30 @@ export const dynamic = 'force-dynamic';
  *   in the JSON body but still 200 — the runbook tells oncall how to read it.
  *   Use `?strict=1` to get a 503 when degraded, which is what Coolify's
  *   rolling-deploy health check wants.
+ * - In production, also verifies the runtime env points at the correct Shopify
+ *   app (client_id), domain, and scopes. A mismatch (e.g. the old app's key left
+ *   in the env after re-creating the app) is fatal in strict mode so a broken
+ *   deploy rolls back instead of hanging on the embedded App Bridge skeleton.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const strict = url.searchParams.get('strict') === '1';
 
+  // Config drift is only meaningful in prod — dev uses a throwaway tunnel URL
+  // (and possibly a separate dev app) that intentionally won't match.
+  const configIssues = env.NODE_ENV === 'production' ? checkAppIdentity(env) : [];
+  const configOk = configIssues.length === 0;
+
   const [dbOk, redisOk] = await Promise.all([pingPostgres(), pingRedis()]);
-  const ok = dbOk && redisOk;
+  const ok = dbOk && redisOk && configOk;
   const status = !ok && strict ? 503 : 200;
 
   return NextResponse.json(
     {
       ok,
       degraded: !ok,
-      checks: { postgres: dbOk, redis: redisOk },
+      checks: { postgres: dbOk, redis: redisOk, config: configOk },
+      ...(configIssues.length > 0 ? { config_issues: configIssues } : {}),
       uptime_sec: Math.round(process.uptime()),
       version: process.env.npm_package_version ?? 'dev',
     },
