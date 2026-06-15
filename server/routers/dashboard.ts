@@ -186,11 +186,13 @@ export const dashboardRouter = router({
         const settings = JSON.parse(assetData.asset.value) as SettingsData;
 
         function isTrackerBlock(b: ThemeBlock): boolean {
-          // Actual type in theme: shopify://apps/lostsearch/blocks/tracker/<uid>
-          // The TOML handle (storefront-tracker) and UID may differ from what
-          // Shopify stored when the extension was first published — match on
-          // the stable app identifier instead.
-          return b.type.startsWith('shopify://apps/lostsearch/');
+          // Theme block type: shopify://apps/<app-handle>/blocks/<block-handle>/<uid>
+          // Match on the BLOCK handle (`tracker`, from blocks/tracker.liquid),
+          // not the app handle. The app handle changes when the app is renamed
+          // or re-created — it was previously hardcoded as `lostsearch`, which
+          // silently broke tracker detection after the DemandRadar rebrand. The
+          // block handle is stable across renames.
+          return /^shopify:\/\/apps\/[^/]+\/blocks\/tracker\//.test(b.type);
         }
 
         // App embed blocks live at current.blocks in OS 2.0 themes.
