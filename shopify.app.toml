@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "864e920b5d90780332d213b5c60b22e0"
+client_id = "69b5e0220667e52ac0f9ee17da2831db"
 name = "DemandRadar"
 application_url = "https://demandradar.solnix.store"
 embedded = true

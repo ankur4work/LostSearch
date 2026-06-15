@@ -14,7 +14,7 @@
  */
 
 /** Matches `client_id` in shopify.app.toml. Public identifier — safe to commit. */
-export const APP_CLIENT_ID = '864e920b5d90780332d213b5c60b22e0';
+export const APP_CLIENT_ID = '69b5e0220667e52ac0f9ee17da2831db';
 
 /** Host portion of `application_url` in shopify.app.toml (no scheme, no path). */
 export const APP_HOST = 'demandradar.solnix.store';
