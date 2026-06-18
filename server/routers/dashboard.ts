@@ -45,10 +45,17 @@ export const dashboardRouter = router({
       const storeId = ctx.session.storeId;
       const plan = ctx.session.plan ?? 'FREE';
 
+      // NOTE: We intentionally do NOT filter out low-volume gaps on FREE. A
+      // brand-new store (and an App Reviewer doing a burst of distinct test
+      // searches) initially has ONLY low-volume gaps — hiding them made the
+      // FREE list render empty while the stat card still claimed gaps existed,
+      // which read as "the app is broken". Monetization is preserved by the
+      // blur-lock below: FREE still only reveals the top FREE_PLAN_VISIBLE_GAPS
+      // (ordered by occurrence/revenue, so genuine high-volume gaps win the
+      // visible slots), with the rest shown blurred behind the upgrade CTA.
       const where = {
         storeId,
         ...(input.type === 'ALL' ? {} : { type: input.type }),
-        ...(plan === 'FREE' ? { lowVolume: false } : {}),
       };
 
       const [total, rows] = await Promise.all([

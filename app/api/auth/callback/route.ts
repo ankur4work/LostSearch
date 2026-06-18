@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyOAuthHmac } from '@/lib/shopify/hmac';
 import { OAuthCallbackSchema, isValidShopDomain } from '@/lib/shopify/validators';
 import { upsertStoreWithToken, refreshStoreToken } from '@/lib/shopify/store';
+import { ensureTrackerScriptTag } from '@/lib/shopify/script-tag';
 import { exchangeOfflineAccessToken } from '@/lib/shopify/token-exchange';
 import { extractBearerToken, verifySessionToken } from '@/lib/shopify/session';
 // jobs/schedule imported dynamically — the transitive BullMQ Queue init
@@ -80,8 +81,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 
   // Webhooks are declared in shopify.app.toml [[webhooks.subscriptions]] and
-  // auto-registered by Shopify. Storefront tracker is delivered via theme app
-  // extension instead of REST ScriptTag (which is deprecated for new tokens).
+  // auto-registered by Shopify. Storefront tracker is delivered TWO ways: a
+  // theme app embed (merchant-controllable, off by default) AND an auto-injected
+  // ScriptTag below, so search tracking works with zero merchant action from the
+  // moment the app is installed. See lib/shopify/script-tag.ts.
+  await ensureTrackerScriptTag(store);
   const { enqueueInstallBackfill } = await import('@/jobs/schedule');
   await enqueueInstallBackfill(store.id);
   track({
@@ -138,6 +142,12 @@ async function handleEmbeddedBootstrap(req: NextRequest): Promise<NextResponse> 
         scope: exchanged.scope,
         expiresIn: exchanged.expiresIn,
       });
+
+  // Ensure the storefront tracker ScriptTag exists on every bootstrap. This
+  // is idempotent (no-ops if already present) and self-heals stores that were
+  // installed before auto-injection existed, so tracking starts capturing
+  // searches without any merchant action.
+  await ensureTrackerScriptTag(store);
 
   // Only enqueue a backfill on first install. Subsequent app opens just
   // refresh the access token — they must not trigger a new sync.

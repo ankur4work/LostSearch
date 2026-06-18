@@ -10,9 +10,9 @@ export function InsufficientDataEmpty(): JSX.Element {
         image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
       >
         <p>
-          Your storefront tracker is live and capturing every shopper search in real time. Click
-          <strong> Sync now</strong> on the dashboard any time to pull the latest signals — revenue
-          estimates stabilize once you have ~50+ monthly searches.
+          Your storefront tracker is live and capturing every shopper search in real time — new
+          searches appear here automatically, no action needed. Revenue estimates stabilize once you
+          have ~50+ monthly searches.
         </p>
       </EmptyState>
     </Card>

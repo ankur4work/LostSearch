@@ -205,11 +205,12 @@ export default function HomePage(): JSX.Element {
         )}
 
         {/* TRACKER SETUP — shown until first search arrives */}
-        {summaryQ.data &&
-          (summaryQ.data.totalMonthlySearches ?? 0) === 0 &&
-          trackerQ.data?.enabled === false && (
-            <TrackerSetupBanner shopDomain={summaryQ.data.shopDomain} />
-          )}
+        {summaryQ.data && (summaryQ.data.totalMonthlySearches ?? 0) === 0 && (
+          <TrackerSetupBanner
+            shopDomain={summaryQ.data.shopDomain}
+            embedEnabled={trackerQ.data?.enabled ?? null}
+          />
+        )}
 
         {/* HOW LOSTSEARCH WORKS — 5 steps */}
         <Card>
@@ -328,15 +329,16 @@ export default function HomePage(): JSX.Element {
                 <BlockStack gap="400">
                   <div>
                     <Text as="p" variant="bodyMd" fontWeight="semibold">
-                      ✓ Sync regularly — but don&rsquo;t obsess
+                      ✓ Shopper searches track automatically
                     </Text>
                     <Text as="p" variant="bodyMd" tone="subdued">
-                      DemandRadar auto-syncs daily. Hit <strong>Sync now</strong> on the dashboard
-                      after a product launch, a price drop, or anytime you&rsquo;ve added new SKUs
-                      so gap detection sees the new catalog. Revenue numbers stabilize once you
-                      have <strong>50+ monthly searches</strong> — below that, the dashboard
-                      shows volume but holds back $ estimates because the sample is too small to
-                      trust.
+                      Storefront searches are captured in real time and analyzed daily — you
+                      don&rsquo;t need to do anything. Hit <strong>Refresh data</strong> on the
+                      dashboard after a product launch, a price drop, or anytime you&rsquo;ve added
+                      new SKUs so gap detection re-scores against the new catalog. Revenue numbers
+                      stabilize once you have <strong>50+ monthly searches</strong> — below that,
+                      the dashboard shows volume but holds back $ estimates because the sample is
+                      too small to trust.
                     </Text>
                   </div>
 

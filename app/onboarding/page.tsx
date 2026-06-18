@@ -19,7 +19,7 @@ import { useTrpcAuth } from '@/lib/trpc/provider';
 const LABELS: Record<string, string> = {
   INGEST_PRODUCTS: 'Syncing product catalog',
   INGEST_ORDERS: 'Computing store AOV',
-  INGEST_SEARCH: 'Pulling search analytics',
+  INGEST_SEARCH: 'Preparing search tracking',
 };
 
 const TONE: Record<string, 'info' | 'success' | 'critical' | 'attention'> = {

@@ -105,11 +105,17 @@ export default function DashboardPage(): JSX.Element {
   const ingestHasError = onboarding.data?.hasError ?? false;
 
   const s = summary.data;
-  const showInsufficient = s.totalMonthlySearches < MIN_MONTHLY_SEARCHES;
-  const showNoGaps = !showInsufficient && s.totalClassifications === 0;
-
   const totalQueries = s.totalMonthlySearches ?? 0;
-  const hasGaps = !showInsufficient && !showNoGaps;
+  // True zero state: ingestion finished but the tracker hasn't captured a
+  // single search yet. Show an honest "waiting for first search" banner rather
+  // than the generic "collecting" card, so the merchant knows to run a search.
+  const isWaitingForFirstSearch = ingestionReady && totalQueries === 0;
+  const showInsufficient =
+    !isWaitingForFirstSearch && s.totalMonthlySearches < MIN_MONTHLY_SEARCHES;
+  const showNoGaps =
+    !isWaitingForFirstSearch && !showInsufficient && s.totalClassifications === 0;
+
+  const hasGaps = !isWaitingForFirstSearch && !showInsufficient && !showNoGaps;
 
   return (
     <Page fullWidth>
@@ -130,8 +136,11 @@ export default function DashboardPage(): JSX.Element {
           onSyncStarted={() => setSyncInitiatedAt(Date.now())}
         />
 
-        {ingestionReady && totalQueries === 0 && trackerQ.data?.enabled === false && (
-          <TrackerSetupBanner shopDomain={s.shopDomain} />
+        {isWaitingForFirstSearch && (
+          <TrackerSetupBanner
+            shopDomain={s.shopDomain}
+            embedEnabled={trackerQ.data?.enabled ?? null}
+          />
         )}
 
         {showInsufficient && <InsufficientDataEmpty />}

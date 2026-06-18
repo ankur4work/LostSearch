@@ -20,7 +20,7 @@ export const APP_CLIENT_ID = '69b5e0220667e52ac0f9ee17da2831db';
 export const APP_HOST = 'demandradar.solnix.store';
 
 /** Matches `access_scopes.scopes` in shopify.app.toml. Order-insensitive. */
-export const APP_SCOPES = 'read_orders,read_products,read_content,read_themes';
+export const APP_SCOPES = 'read_orders,read_products,read_content,read_themes,write_script_tags';
 
 /** Normalize a comma-separated scope string for order-insensitive comparison. */
 function normalizeScopes(raw: string): string {

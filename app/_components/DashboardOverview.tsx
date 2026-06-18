@@ -225,7 +225,11 @@ export function DashboardOverview({
       onSyncStarted?.();
     },
     onSuccess: () => {
-      setToast('Pulling fresh data from your store…');
+      // Be precise about what this does: it re-pulls catalog + orders and
+      // re-scores gaps from searches the storefront tracker has ALREADY
+      // captured. It does NOT (and cannot) reach out and fetch storefront
+      // searches — those stream in continuously from the tracker on their own.
+      setToast('Refreshing catalog and re-scoring search gaps…');
       void utils.onboarding.status.invalidate();
     },
     onError: (err) => {
@@ -310,7 +314,7 @@ export function DashboardOverview({
               loading={syncNow.isPending}
               onClick={() => syncNow.mutate()}
             >
-              {syncNow.isPending ? 'Syncing…' : 'Sync now'}
+              {syncNow.isPending ? 'Refreshing…' : 'Refresh data'}
             </Button>
             {plan === 'FREE' && (
               <Button variant="primary" onClick={onUpgrade}>
@@ -345,15 +349,15 @@ export function DashboardOverview({
             isSyncing
               ? 'In progress…'
               : hasError
-                ? 'Sync error — click Sync now to retry'
-                : `Last synced ${relative}`
+                ? 'Refresh error — click Refresh data to retry'
+                : `Last refreshed ${relative}`
           }
           accent={isSyncing ? '#d97706' : hasError ? '#dc2626' : '#16a34a'}
         />
         <StatCard
           label="Searches tracked"
           value={totalQueries.toLocaleString()}
-          hint={syncReady ? 'Last 30 days' : 'Collecting…'}
+          hint={syncReady ? 'Tracked automatically · last 30 days' : 'Collecting…'}
           accent={queriesAccent}
         />
         <StatCard
