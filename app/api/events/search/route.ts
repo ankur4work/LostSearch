@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { ShopDomainSchema } from '@/lib/shopify/validators';
 import { normalizeQuery, dateBucketUTC } from '@/lib/ingestion/normalize';
@@ -70,69 +71,53 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const occurredAt = new Date(at);
   const bucket = dateBucketUTC(occurredAt);
 
-  // `search_submitted` events always count; `search_viewed` on the SERP only
-  // records result_count (we don't double-count — if submitted fired too,
-  // we'd have two rows per search. Solution: upsert on the day-bucket and
-  // bump occurrenceCount for submitted; update resultCount for viewed.)
+  // One logical shopper search emits several events across page contexts
+  // (predictive box, form submit, then the /search results page) within a few
+  // seconds. The client guard can't dedupe across page navigations, so we gate
+  // the occurrence count server-side: the FIRST event for a (store, query)
+  // within a short window counts once; later same-query events only refresh
+  // resultCount. Keyed on a Redis SET NX so it works regardless of which event
+  // (submitted/viewed) arrives first. If Redis is unavailable we fall back to
+  // the legacy rule (count submits) so an infra blip never drops data.
+  let countOccurrence: boolean;
   try {
-    if (event === 'search_submitted') {
-      await prisma.searchQuery.upsert({
-        where: {
-          uniq_store_query_bucket: {
-            storeId: store.id,
-            queryNormalized,
-            dateBucket: bucket,
-          },
-        },
-        create: {
+    const dedupeKey = `srch:dedup:${store.id}:${queryNormalized}`;
+    const firstInWindow = await redis.set(dedupeKey, '1', 'EX', 10, 'NX');
+    countOccurrence = firstInWindow !== null;
+  } catch {
+    countOccurrence = event === 'search_submitted';
+  }
+
+  try {
+    await prisma.searchQuery.upsert({
+      where: {
+        uniq_store_query_bucket: {
           storeId: store.id,
-          query,
           queryNormalized,
-          occurredAt,
           dateBucket: bucket,
-          occurrenceCount: 1,
-          resultCount: resultCount ?? 0,
-          clickCount: 0,
-          filtersJson: filters ?? undefined,
         },
-        update: {
-          occurrenceCount: { increment: 1 },
-          occurredAt,
-          // Keep the highest result_count seen — a later search for the same
-          // query on the full /search page may have a real non-zero count.
-          ...(resultCount != null ? { resultCount } : {}),
-          filtersJson: filters ?? undefined,
-        },
-      });
-    } else {
-      // search_viewed — we landed on /search?q=... with results. Record the
-      // result_count even if no form submit fired (deep link, back button).
-      await prisma.searchQuery.upsert({
-        where: {
-          uniq_store_query_bucket: {
-            storeId: store.id,
-            queryNormalized,
-            dateBucket: bucket,
-          },
-        },
-        create: {
-          storeId: store.id,
-          query,
-          queryNormalized,
-          occurredAt,
-          dateBucket: bucket,
-          occurrenceCount: 1,
-          resultCount: resultCount ?? 0,
-          clickCount: 0,
-          filtersJson: filters ?? undefined,
-        },
-        update: {
-          resultCount: resultCount ?? undefined,
-          occurredAt,
-          filtersJson: filters ?? undefined,
-        },
-      });
-    }
+      },
+      create: {
+        storeId: store.id,
+        query,
+        queryNormalized,
+        occurredAt,
+        dateBucket: bucket,
+        occurrenceCount: 1,
+        resultCount: resultCount ?? 0,
+        clickCount: 0,
+        filtersJson: filters ?? undefined,
+      },
+      update: {
+        occurredAt,
+        // Only bump volume for the first event in the dedupe window.
+        ...(countOccurrence ? { occurrenceCount: { increment: 1 } } : {}),
+        // Keep the latest result_count seen — the /search results page often
+        // carries a more accurate count than the predictive box.
+        ...(resultCount != null ? { resultCount } : {}),
+        filtersJson: filters ?? undefined,
+      },
+    });
   } catch (err) {
     logger.warn(
       { shop, query: queryNormalized, err: (err as Error).message },
