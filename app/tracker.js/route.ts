@@ -35,6 +35,21 @@ function buildTracker(endpoint: string): string {
   var shop = (window.Shopify && window.Shopify.shop) || null;
   if (!shop) return;
 
+  // Per-session id, stable across page navigations within the same tab
+  // (sessionStorage survives navigation, is cleared when the tab closes). Sent
+  // with every event so the server can scope its de-dupe to ONE shopper —
+  // collapsing the multiple events of a single search without merging the same
+  // query typed by different shoppers. Best-effort: null in private modes that
+  // block storage, in which case the server falls back to (store, query).
+  var SID = (function(){
+    try {
+      var k = '__drSid';
+      var s = window.sessionStorage.getItem(k);
+      if (!s) { s = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); window.sessionStorage.setItem(k, s); }
+      return s;
+    } catch (e) { return null; }
+  })();
+
   // De-dupe the same submitted query within a short window. A single shopper
   // action can trip more than one hook (predictive-search fetch, form submit,
   // and AJAX /search? load), which would inflate occurrenceCount for one search.
@@ -48,7 +63,7 @@ function buildTracker(endpoint: string): string {
         if (recentSubmits[dedupeKey] && nowTs - recentSubmits[dedupeKey] < 2500) return;
         recentSubmits[dedupeKey] = nowTs;
       }
-      var body = JSON.stringify(Object.assign({ shop: shop, at: Date.now() }, payload));
+      var body = JSON.stringify(Object.assign({ shop: shop, at: Date.now(), sid: SID }, payload));
       // Use text/plain so the request is a "simple" CORS request (no preflight).
       // The server reads body as JSON regardless of declared content-type.
       if (navigator.sendBeacon) {

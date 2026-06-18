@@ -17,6 +17,9 @@ const EventSchema = z.object({
   filters: z.record(z.string(), z.string()).nullable().optional(),
   at: z.number().int().positive(),
   path: z.string().max(500).optional(),
+  // Per-session id from the tracker (sessionStorage). Optional for backward
+  // compatibility with cached trackers that predate it.
+  sid: z.string().min(1).max(64).nullable().optional(),
 });
 
 function cors(res: NextResponse): NextResponse {
@@ -52,7 +55,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!parsed.success) {
     return cors(NextResponse.json({ error: 'invalid payload' }, { status: 400 }));
   }
-  const { shop, query, resultCount, filters, at, event } = parsed.data;
+  const { shop, query, resultCount, filters, at, event, sid } = parsed.data;
 
   const queryNormalized = normalizeQuery(query);
   if (!queryNormalized) {
@@ -81,7 +84,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // the legacy rule (count submits) so an infra blip never drops data.
   let countOccurrence: boolean;
   try {
-    const dedupeKey = `srch:dedup:${store.id}:${queryNormalized}`;
+    // Scope the de-dupe to the shopper session when the tracker provides one,
+    // so the same query from different shoppers within the window is NOT
+    // merged. Cached trackers without a session id fall back to (store, query).
+    const dedupeKey = sid
+      ? `srch:dedup:${store.id}:${queryNormalized}:${sid}`
+      : `srch:dedup:${store.id}:${queryNormalized}`;
     const firstInWindow = await redis.set(dedupeKey, '1', 'EX', 10, 'NX');
     countOccurrence = firstInWindow !== null;
   } catch {
