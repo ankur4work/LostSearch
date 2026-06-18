@@ -133,8 +133,15 @@ function buildTracker(endpoint: string): string {
   // Most modern themes use AJAX autocomplete that never submits a form or
   // navigates to /search — without this hook those queries are never captured.
   function hookPredictive() {
-    var debounceMap = {};
-    var countMap = {};
+    // A single typing burst ("sh" -> "sho" -> "shoe" -> "shoes") fires one
+    // /search/suggest call per keystroke. Counting each prefix as its own
+    // search massively over-counts (one word = 3-5 "searches", several junk
+    // product gaps). So we keep ONE pending slot + ONE timer: each suggest call
+    // overwrites the pending query with the latest (longest) one and resets the
+    // timer, so only the final query of the burst is recorded.
+    var pendingQuery = null;
+    var pendingCount = null;
+    var pendingTimer = null;
     var origFetch = window.fetch;
     window.fetch = function(input, init) {
       var promise = origFetch.apply(this, arguments);
@@ -144,9 +151,8 @@ function buildTracker(endpoint: string): string {
           var parsed = new URL(url, window.location.origin);
           var q = (parsed.searchParams.get('q') || parsed.searchParams.get('query') || '').trim();
           if (q && q.length >= 2) {
-            // Clone response immediately (before theme JS reads it) and resolve
-            // the product count. Store as a resolved promise so debounce can
-            // read it synchronously-ish after 600ms.
+            // Clone the response immediately (before theme JS consumes it) and
+            // resolve the product count for the result.
             var countPromise = promise.then(function(res) {
               try { return res.clone().json(); } catch(e) { return Promise.resolve(null); }
             }).then(function(data) {
@@ -155,20 +161,20 @@ function buildTracker(endpoint: string): string {
                 return prods ? prods.length : 0;
               } catch(e) { return 0; }
             }).catch(function() { return 0; });
-            clearTimeout(debounceMap[q]);
-            countMap[q] = countPromise;
-            debounceMap[q] = setTimeout(function(){
-              var cp = countMap[q];
-              delete debounceMap[q];
-              delete countMap[q];
+            pendingQuery = q;
+            pendingCount = countPromise;
+            clearTimeout(pendingTimer);
+            pendingTimer = setTimeout(function(){
+              var fq = pendingQuery, cp = pendingCount;
+              pendingQuery = null; pendingCount = null; pendingTimer = null;
               if (cp) {
                 cp.then(function(count) {
-                  send({ event: 'search_submitted', query: q, resultCount: count, path: '/search/suggest' });
+                  send({ event: 'search_submitted', query: fq, resultCount: count, path: '/search/suggest' });
                 });
               } else {
-                send({ event: 'search_submitted', query: q, path: '/search/suggest' });
+                send({ event: 'search_submitted', query: fq, path: '/search/suggest' });
               }
-            }, 600);
+            }, 1000);
           }
         }
       } catch(e) {}
