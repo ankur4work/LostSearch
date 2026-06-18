@@ -23,12 +23,31 @@ export const dynamic = 'force-dynamic';
  */
 function buildTracker(endpoint: string): string {
   return `(function(){
+  // Idempotency guard. The tracker is delivered TWO ways (theme app embed +
+  // auto-injected ScriptTag), and both load this same /tracker.js. Without this
+  // guard, two <script> executions install two submit listeners and wrap fetch
+  // twice — so every shopper search is counted multiple times. Bail if we've
+  // already initialized on this page.
+  if (window.__demandRadarTracker) return;
+  window.__demandRadarTracker = true;
+
   var ENDPOINT = ${JSON.stringify(endpoint)};
   var shop = (window.Shopify && window.Shopify.shop) || null;
   if (!shop) return;
 
+  // De-dupe the same submitted query within a short window. A single shopper
+  // action can trip more than one hook (predictive-search fetch, form submit,
+  // and AJAX /search? load), which would inflate occurrenceCount for one search.
+  var recentSubmits = {};
+
   function send(payload) {
     try {
+      if (payload && payload.event === 'search_submitted') {
+        var dedupeKey = String(payload.query || '').trim().toLowerCase();
+        var nowTs = Date.now();
+        if (recentSubmits[dedupeKey] && nowTs - recentSubmits[dedupeKey] < 2500) return;
+        recentSubmits[dedupeKey] = nowTs;
+      }
       var body = JSON.stringify(Object.assign({ shop: shop, at: Date.now() }, payload));
       // Use text/plain so the request is a "simple" CORS request (no preflight).
       // The server reads body as JSON regardless of declared content-type.
